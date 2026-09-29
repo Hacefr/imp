@@ -330,13 +330,51 @@ async function generateFallbackSpritesheet(bodyColor) {
   return new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
 }
 
-// 11. FULL HYBRID AUTO-BUNDLER (.ZIP)
+// 11. COSMICUBE BANNER GENERATOR
+async function generateCosmicubeBanner(title, bodyColor) {
+  const bCanvas = document.createElement('canvas');
+  bCanvas.width = 400;
+  bCanvas.height = 160;
+  const bCtx = bCanvas.getContext('2d');
+
+  // Background
+  const grad = bCtx.createLinearGradient(0, 0, 400, 160);
+  grad.addColorStop(0, '#100e23');
+  grad.addColorStop(1, '#2c1445');
+  bCtx.fillStyle = grad;
+  bCtx.fillRect(0, 0, 400, 160);
+
+  // Border
+  bCtx.strokeStyle = '#a855f7';
+  bCtx.lineWidth = 6;
+  bCtx.strokeRect(3, 3, 394, 154);
+
+  // Mini Impostor Silhouette
+  bCtx.save();
+  bCtx.translate(330, 85);
+  bCtx.scale(0.45, 0.45);
+  renderProceduralImpostor(bCtx, bodyColor, 'idle');
+  bCtx.restore();
+
+  // Banner Text
+  bCtx.fillStyle = '#ffffff';
+  bCtx.font = '900 22px "Montserrat", sans-serif';
+  bCtx.fillText(title.toUpperCase(), 24, 75);
+
+  bCtx.fillStyle = '#fde047';
+  bCtx.font = '700 13px "Nunito", sans-serif';
+  bCtx.fillText('PLAYABLE SKIN CUBE', 26, 102);
+
+  return new Promise(resolve => bCanvas.toBlob(resolve, 'image/png'));
+}
+
+// 12. FULL HYBRID AUTO-BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
   const skinId = rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   const version = document.getElementById('engineVersion').value;
-  const cubeTitle = document.getElementById('cubeTitle').value || 'Custom Cube';
+  const cubeTitle = document.getElementById('cubeTitle').value || 'Legacy Crewmate Cube';
   const cubeId = cubeTitle.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const bodyColor = document.getElementById('healthColor').value;
@@ -414,13 +452,11 @@ async function bundleModZip() {
   xmlString += `</TextureAtlas>`;
 
   // E. Security DLC Format for Cosmicubes
-  // 1. Header JSON: data/cosmicube/[cubeId].json
   const cubeHeaderString = JSON.stringify({
     title: cubeTitle.toUpperCase(),
     currency: currencyType
   }, null, 2);
 
-  // 2. Item Node JSON: data/cosmicube/[cubeId]/[skinId].json
   const itemNodeString = JSON.stringify({
     type: "playerSkin",
     price: cost,
@@ -433,47 +469,59 @@ async function bundleModZip() {
     }
   }, null, 2);
 
-  // F. Icon Strips
+  // F. Icon Strips & Banner
   const iconBlob = await generateStitchedIconBlob();
+  const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
 
   // -------------------------------------------------------------
   // HYBRID INJECTION (Guarantees discovery by engine & mod loaders)
   // -------------------------------------------------------------
 
-  // 1. Root Level
+  // 1. Root Level Files
   zip.file("meta.json", metaString);
   zip.file("_polymod_meta.json", metaString);
   zip.file("icon.png", iconBlob);
 
-  // 2. Mod Folder Level
+  // 2. Mod Folder Level Files
   const modFolder = zip.folder(skinId);
   modFolder.file("meta.json", metaString);
   modFolder.file("_polymod_meta.json", metaString);
   modFolder.file("icon.png", iconBlob);
 
-  // Characters
+  // CHARACTER CONFIG (.json) in characters/
   zip.folder("characters").file(`${skinId}.json`, charConfigString);
+  modFolder.folder("characters").file(`${skinId}.json`, charConfigString);
+
+  // CRITICAL FIX: SPRITESHEET (.png & .xml) in images/characters/ (where NightmareVision looks!)
+  zip.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
+  zip.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
+  modFolder.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
+  modFolder.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
+
+  // Also keep a copy in characters/ for backwards compatibility
   zip.folder("characters").file(`${skinId}.png`, spriteBlob);
   zip.folder("characters").file(`${skinId}.xml`, xmlString);
-
-  modFolder.folder("characters").file(`${skinId}.json`, charConfigString);
   modFolder.folder("characters").file(`${skinId}.png`, spriteBlob);
   modFolder.folder("characters").file(`${skinId}.xml`, xmlString);
 
-  // Icons
+  // HEALTH ICONS in images/icons/
   zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
   modFolder.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-  // EXACT SECURITY DLC COSMICUBE STRUCTURE (data/cosmicube/)
-  // Header: data/cosmicube/[cubeId].json
+  // COSMICUBE DATA in data/cosmicube/
   zip.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
   modFolder.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
 
-  // Item Nodes: data/cosmicube/[cubeId]/[skinId].json
   zip.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
   modFolder.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
 
-  // Download
+  // COSMICUBE BANNER (Mirrored in images/cosmicubes/ and images/cosmicube/)
+  zip.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
+  modFolder.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
+  zip.folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
+  modFolder.folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
+
+  // Download Bundle
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
