@@ -1,6 +1,6 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Engineered for NightmareVision Engine & VS Impostor: Legacy content loading.
+ * Verified format matching official VS Impostor Legacy & Security DLC specs.
  */
 
 // 1. GLOBAL STATE
@@ -145,7 +145,7 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.fill();
   c.stroke();
 
-  // Visor Highlight
+  // Visor Shine
   c.fillStyle = '#ffffff';
   c.beginPath();
   c.roundRect(-10, -50, 45, 12, 6);
@@ -330,51 +330,7 @@ async function generateFallbackSpritesheet(bodyColor) {
   return new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
 }
 
-// 11. AUTO-GENERATED COSMICUBE SHOP BANNER (Required by VS Impostor Shop)
-async function generateCosmicubeBanner(title, bodyColor) {
-  const bCanvas = document.createElement('canvas');
-  bCanvas.width = 600;
-  bCanvas.height = 200;
-  const bCtx = bCanvas.getContext('2d');
-
-  // Space Gradient
-  const grad = bCtx.createLinearGradient(0, 0, 600, 200);
-  grad.addColorStop(0, '#0c0a1a');
-  grad.addColorStop(1, '#24123a');
-  bCtx.fillStyle = grad;
-  bCtx.fillRect(0, 0, 600, 200);
-
-  // Decorative border
-  bCtx.strokeStyle = '#a855f7';
-  bCtx.lineWidth = 8;
-  bCtx.strokeRect(4, 4, 592, 192);
-
-  // Tiny Stars
-  bCtx.fillStyle = '#ffffff';
-  for (let i = 0; i < 40; i++) {
-    bCtx.fillRect(Math.random() * 580 + 10, Math.random() * 180 + 10, 2, 2);
-  }
-
-  // Mini Impostor Silhouette
-  bCtx.save();
-  bCtx.translate(500, 110);
-  bCtx.scale(0.55, 0.55);
-  renderProceduralImpostor(bCtx, bodyColor, 'idle');
-  bCtx.restore();
-
-  // Banner Text
-  bCtx.fillStyle = '#ffffff';
-  bCtx.font = '900 32px "Montserrat", sans-serif';
-  bCtx.fillText(title.toUpperCase(), 35, 95);
-
-  bCtx.fillStyle = '#fbbf24';
-  bCtx.font = '700 16px "Nunito", sans-serif';
-  bCtx.fillText('PLAYABLE SKIN COSMICUBE', 38, 125);
-
-  return new Promise(resolve => bCanvas.toBlob(resolve, 'image/png'));
-}
-
-// 12. FULL HYBRID AUTO-BUNDLER (.ZIP)
+// 11. FULL HYBRID AUTO-BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
@@ -384,7 +340,8 @@ async function bundleModZip() {
   const cubeId = cubeTitle.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const bodyColor = document.getElementById('healthColor').value;
-  const cost = parseInt(document.getElementById('nodeCostInput').value) || 1000;
+  const cost = parseInt(document.getElementById('nodeCostInput').value) || 100;
+  const currencyType = document.getElementById('currencyMode').value === 'custom' ? 'modpods' : 'beans';
 
   // A. Metadata
   const metaData = {
@@ -401,17 +358,8 @@ async function bundleModZip() {
   };
 
   const metaString = JSON.stringify(metaData, null, 2);
-  const manifestString = JSON.stringify({
-    target_engine: "vs_impostor_v4_legacy",
-    min_version: version,
-    character_type: "boyfriend_skin",
-    skin_id: skinId,
-    save_prefix: `v4skin_${skinId}`,
-    cosmicube_id: cubeId,
-    auto_compiled: true
-  }, null, 2);
 
-  // B. Boyfriend Character JSON
+  // B. Boyfriend Character Config JSON
   const charConfigString = JSON.stringify({
     animations: [
       { anim: "idle", name: "idle", fps: 24, loop: false, offsets: [0, 0] },
@@ -465,52 +413,45 @@ async function bundleModZip() {
   }
   xmlString += `</TextureAtlas>`;
 
-  // E. Full Cosmicube Registry Structure (Matches VS Impostor Legacy)
-  const cubeData = {
-    id: cubeId,
-    name: cubeTitle,
-    banner: cubeId,
-    currency: "beans",
-    cost: cost,
-    items: [
-      {
-        id: skinId,
-        name: cubeTitle,
-        type: "skin",
-        target: "bf",
-        cost: cost,
-        unlocked: false
-      }
-    ],
-    nodes: [
-      { id: 0, reward: "Start", cost: 0 },
-      { id: 1, reward: skinId, cost: cost }
-    ]
-  };
-  const cubeConfigString = JSON.stringify(cubeData, null, 2);
+  // E. Security DLC Format for Cosmicubes
+  // 1. Header JSON: data/cosmicube/[cubeId].json
+  const cubeHeaderString = JSON.stringify({
+    title: cubeTitle.toUpperCase(),
+    currency: currencyType
+  }, null, 2);
 
-  // F. Generate Real Banner & Stitched Icons
-  const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
+  // 2. Item Node JSON: data/cosmicube/[cubeId]/[skinId].json
+  const itemNodeString = JSON.stringify({
+    type: "playerSkin",
+    price: cost,
+    title: cubeTitle,
+    hint: "Cosmicube Exclusive",
+    description: "Custom Playable Boyfriend Skin",
+    node: {
+      direction: "north",
+      parent: "root"
+    }
+  }, null, 2);
+
+  // F. Icon Strips
   const iconBlob = await generateStitchedIconBlob();
 
   // -------------------------------------------------------------
   // HYBRID INJECTION (Guarantees discovery by engine & mod loaders)
   // -------------------------------------------------------------
 
-  // 1. Root-Level Files
+  // 1. Root Level
   zip.file("meta.json", metaString);
   zip.file("_polymod_meta.json", metaString);
-  zip.file("_polus_manifest.json", manifestString);
   zip.file("icon.png", iconBlob);
 
-  // 2. Mod Folder Files
+  // 2. Mod Folder Level
   const modFolder = zip.folder(skinId);
   modFolder.file("meta.json", metaString);
   modFolder.file("_polymod_meta.json", metaString);
-  modFolder.file("_polus_manifest.json", manifestString);
   modFolder.file("icon.png", iconBlob);
 
-  // Inject Characters (Both levels)
+  // Characters
   zip.folder("characters").file(`${skinId}.json`, charConfigString);
   zip.folder("characters").file(`${skinId}.png`, spriteBlob);
   zip.folder("characters").file(`${skinId}.xml`, xmlString);
@@ -519,22 +460,20 @@ async function bundleModZip() {
   modFolder.folder("characters").file(`${skinId}.png`, spriteBlob);
   modFolder.folder("characters").file(`${skinId}.xml`, xmlString);
 
-  // Inject Cosmicubes into BOTH cosmicubes/ and data/cosmicubes/
-  zip.folder("cosmicubes").file(`${cubeId}.json`, cubeConfigString);
-  zip.folder("data").folder("cosmicubes").file(`${cubeId}.json`, cubeConfigString);
-
-  modFolder.folder("cosmicubes").file(`${cubeId}.json`, cubeConfigString);
-  modFolder.folder("data").folder("cosmicubes").file(`${cubeId}.json`, cubeConfigString);
-
-  // Inject Cosmicube Banner (images/cosmicubes/)
-  zip.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
-  modFolder.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
-
-  // Inject Icons
+  // Icons
   zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
   modFolder.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-  // Trigger Download
+  // EXACT SECURITY DLC COSMICUBE STRUCTURE (data/cosmicube/)
+  // Header: data/cosmicube/[cubeId].json
+  zip.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
+  modFolder.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
+
+  // Item Nodes: data/cosmicube/[cubeId]/[skinId].json
+  zip.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
+  modFolder.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
+
+  // Download
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
