@@ -116,7 +116,6 @@ function drawCharacter() {
   ctx.restore();
 }
 
-// Procedural vector renderer for the placeholder
 function renderProceduralImpostor(c, bodyColor, pose) {
   let offsetX = 0, offsetY = 0, rot = 0;
   if (pose === 'singLEFT')  { offsetX = -20; rot = -0.1; }
@@ -241,7 +240,7 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
     el.style.left = `${x - 25}px`;
     el.style.top = `${y - 12}px`;
 
-    // Calculate position relative to stage center
+    // Coordinates relative to stage center
     const relX = Math.round(x - rect.width / 2);
     const relY = Math.round(y - rect.height / 2);
     stateTarget.x = relX;
@@ -351,7 +350,24 @@ async function bundleModZip() {
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const bodyColor = document.getElementById('healthColor').value;
 
-  // A. Engine Manifest
+  // A. Engine Metadata (meta.json & _polymod_meta.json at root for modloaders)
+  const metaData = {
+    name: skinId,
+    title: cubeTitle || "Custom BF Skin",
+    description: "Custom Playable Boyfriend Skin for VS Impostor V4 Legacy",
+    author: "Impostor Modder",
+    version: "1.0.0",
+    mod_version: "1.0.0",
+    api_version: "0.1.0",
+    global: false,
+    color: [255, 43, 61],
+    icon: "icon.png"
+  };
+
+  zip.file("meta.json", JSON.stringify(metaData, null, 2));
+  zip.file("_polymod_meta.json", JSON.stringify(metaData, null, 2));
+
+  // Legacy manifest guard
   zip.file("_polus_manifest.json", JSON.stringify({
     target_engine: "vs_impostor_v4_legacy",
     min_version: version,
@@ -427,11 +443,14 @@ async function bundleModZip() {
     price: parseInt(document.getElementById('nodeCostInput').value) || 1000
   }, null, 2));
 
-  // E. 450x150 Stitched Health Icon Strip
+  // E. Stitched Icons & Menu Icon
   const iconBlob = await generateStitchedIconBlob();
+  // 1. Root icon.png for the modloader menu
+  zip.file("icon.png", iconBlob);
+  // 2. In-game 450x150 health icon strip
   zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-  // F. Trigger Download
+  // F. Trigger Download (Flat root structure)
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
