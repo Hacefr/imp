@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VS Impostor V4 Legacy - Playable Skin Studio</title>
+  
+  <!-- JSZip via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Dynamic Starfield -->
+  <canvas id="starfield"></canvas>
+
+  <!-- Header -->
+  <header>
+    <div class="main-logo">
+      <span>VS</span>
+      <svg class="bone-icon" viewBox="0 0 24 24">
+        <path d="M19.5 4.5c-1.38 0-2.5 1.12-2.5 2.5 0 .28.05.54.14.78L8.68 11.24A2.49 2.49 0 0 0 7 10.5C5.62 10.5 4.5 11.62 4.5 13s1.12 2.5 2.5 2.5c.65 0 1.24-.25 1.68-.66l8.46 3.46c-.09.24-.14.5-.14.78 0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5c-.28 0-.54.05-.78-.14L10.26 13.1c.09-.24.14-.5.14-.78 0-.28-.05-.54-.14-.78l8.46-3.46c.24.09.5.14.78.14 1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5z"/>
+      </svg>
+      <span>IMPOSTOR</span>
+    </div>
+
+    <nav class="pill-navbar">
+      <button class="pill-btn active" id="tabBtnSkin" onclick="switchTab('skin')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
+        Skin Studio
+      </button>
+
+      <button class="pill-btn" id="tabBtnCosmic" onclick="switchTab('cosmic')">
+        <svg viewBox="0 0 24 24"><path d="M21 16.5l-9 5.2-9-5.2V7.5l9-5.2 9 5.2v9zM12 4.3L5 8.3v7.4l7 4 7-4V8.3l-7-4z"/></svg>
+        Cosmicube Unlock
+      </button>
+
+      <button class="pill-btn" id="tabBtnExport" onclick="switchTab('export')">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Manifest & Config
+      </button>
+
+      <button class="pill-btn export-pill" onclick="bundleModZip()">
+        <svg viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 10v-2h2v-2h-2v-2h2V8h-4v8h2z"/></svg>
+        Auto-Bundle ZIP
+      </button>
+    </nav>
+
+    <div class="section-title-glow" id="subTitle">AUTOMATED BOYFRIEND SKIN COMPILER</div>
+  </header>
+
+  <!-- Viewport -->
+  <main class="app-viewport">
+
+    <!-- TAB 1: Skin Studio -->
+    <div class="tab-view active grid-skin" id="view-skin">
+      
+      <!-- Left: Import & Slicer -->
+      <div class="panel">
+        <div class="panel-header">
+          <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+          Spritesheet Importer
+        </div>
+
+        <div class="form-group">
+          <label>Spritesheet (.png)</label>
+          <input type="file" id="spriteFileInput" accept=".png" onchange="handleSpriteUpload(event)" />
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Columns</label>
+            <input type="number" id="gridCols" value="4" min="1" max="32" oninput="updateGridSlices()" />
+          </div>
+          <div class="form-group">
+            <label>Rows</label>
+            <input type="number" id="gridRows" value="2" min="1" max="32" oninput="updateGridSlices()" />
+          </div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 16px;">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
+          3-State Icon Stitcher
+        </div>
+        
+        <div class="icon-upload-grid">
+          <div class="icon-slot">
+            <label>Normal</label>
+            <input type="file" id="iconNormalInput" accept=".png" onchange="handleIconUpload('normal', event)" />
+            <div class="icon-slot-status" id="iconNormalStatus">Empty</div>
+          </div>
+          <div class="icon-slot">
+            <label>Lose (&lt;20%)</label>
+            <input type="file" id="iconLoseInput" accept=".png" onchange="handleIconUpload('lose', event)" />
+            <div class="icon-slot-status" id="iconLoseStatus">Empty</div>
+          </div>
+          <div class="icon-slot">
+            <label>Win (&gt;80%)</label>
+            <input type="file" id="iconWinInput" accept=".png" onchange="handleIconUpload('win', event)" />
+            <div class="icon-slot-status" id="iconWinStatus">Empty</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Canvas Stage Preview -->
+      <div class="stage-wrapper">
+        <div class="stage-hud">
+          <div style="display: flex; gap: 8px; align-items:center;">
+            <span style="font-size:0.75rem; font-weight:800;">LIVE PREVIEW</span>
+            <span class="key-badge">WASD / Arrow Keys</span>
+          </div>
+          <div style="font-size:0.72rem; color:var(--text-dim);">
+            Active Pose: <strong id="activePoseName" style="color:#fff;">idle</strong>
+          </div>
+        </div>
+
+        <div class="canvas-container" id="stageCanvasContainer">
+          <!-- Hat Anchor Marker -->
+          <div class="anchor-marker anchor-hat" id="hatMarker">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 14H7v-4h6v4z"/></svg>
+            Hat Anchor: <span id="hatCoords">0, 0</span>
+          </div>
+
+          <!-- Camera Anchor Marker -->
+          <div class="anchor-marker anchor-cam" id="camMarker">
+            <svg viewBox="0 0 24 24"><path d="M18 10.48V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-4.48l4 3.98v-11l-4 3.5z"/></svg>
+            Cam Focus: <span id="camCoords">100, -100</span>
+          </div>
+
+          <!-- The Real Character Canvas -->
+          <canvas id="charCanvas" width="400" height="400"></canvas>
+        </div>
+      </div>
+
+      <!-- Right: Skin Configuration -->
+      <div class="panel right">
+        <div class="panel-header">Boyfriend Skin Config</div>
+        <div class="form-group">
+          <label>Skin ID (Strict Lowercase)</label>
+          <input type="text" id="skinId" value="bf_custom_skin" />
+        </div>
+        <div class="form-group">
+          <label>Health Bar Color</label>
+          <input type="color" id="healthColor" value="#ff2b3d" oninput="drawCharacter()" />
+        </div>
+        <div class="form-group">
+          <label>Auto-Scale Factor</label>
+          <input type="number" id="charScale" value="1.0" step="0.05" oninput="drawCharacter()" />
+        </div>
+        <div class="form-group">
+          <label>Antialiasing</label>
+          <select id="antialiasSelect" onchange="drawCharacter()">
+            <option value="true">Smooth Flash Vector (Antialiased)</option>
+            <option value="false">Crisp Retro Pixel (No Antialiasing)</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: Cosmicube Unlock -->
+    <div class="tab-view grid-cosmic" id="view-cosmic">
+      <div class="panel">
+        <div class="panel-header">Cosmicube Economics</div>
+        <div class="form-group">
+          <label>Currency Mode</label>
+          <select id="currencyMode" onchange="toggleCurrency(this.value)">
+            <option value="beans">Standard Beans</option>
+            <option value="custom">Custom Mod Pods</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cosmicube Title</label>
+          <input type="text" id="cubeTitle" value="Legacy Crewmate Cube" />
+        </div>
+        <div class="form-group">
+          <label>Cube Entry Cost</label>
+          <input type="number" id="cubeEntryCost" value="1000" />
+        </div>
+      </div>
+
+      <div class="cosmic-shop">
+        <div class="cosmic-banner">
+          <div>
+            <div style="font-weight:900; font-size:1.05rem;" id="bannerTitle">Legacy Crewmate Cube</div>
+            <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">Reward Target: Boyfriend Player Skin</div>
+          </div>
+          <div class="key-badge" style="font-size:0.85rem; padding:6px 14px; border-color:var(--bean-yellow); color:var(--bean-yellow);" id="currencyBadge">
+            5,000 Beans
+          </div>
+        </div>
+
+        <div class="nodes-container">
+          <div class="tree-node selected" onclick="selectNode('Start', 0, this)">
+            <svg viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
+            <div class="node-cost">FREE</div>
+          </div>
+          <div class="tree-node" onclick="selectNode('Visor Knife', 250, this)">
+            <svg viewBox="0 0 24 24"><path d="M19.59 4.41c-.78-.78-2.05-.78-2.83 0L3 18.17V21h2.83L19.59 7.24c.78-.79.78-2.05 0-2.83zM5.41 19.59L4.41 18.59 15.17 7.83l1 1L5.41 19.59z"/></svg>
+            <div class="node-cost">250</div>
+          </div>
+          <div class="tree-node" onclick="selectNode('Playable Skin', 1000, this)">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
+            <div class="node-cost" id="nodeDisplayCost">1000</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel right">
+        <div class="panel-header">Selected Node Inspector</div>
+        <div class="form-group">
+          <label>Reward Name</label>
+          <input type="text" id="nodeNameInput" value="Start" />
+        </div>
+        <div class="form-group">
+          <label>Unlock Cost</label>
+          <input type="number" id="nodeCostInput" value="0" oninput="updateActiveNodeCost(this.value)" />
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: Packaging & Manifest -->
+    <div class="tab-view" id="view-export" style="grid-template-columns: 1fr 1fr; padding: 25px; gap: 25px;">
+      <div class="panel" style="border:1px solid var(--card-border); border-radius:12px;">
+        <div class="panel-header">Engine Guard & Collision Safety</div>
+        <div class="form-group">
+          <label>Target Engine</label>
+          <select id="engineVersion">
+            <option value="4.1.0-legacy">VS Impostor V4.1.0 Legacy</option>
+            <option value="4.0.0">VS Impostor V4.0.0 Base</option>
+          </select>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
+          • Enforces strict lowercase file names to prevent Steam Deck & Linux crashes.<br>
+          • Injects save namespace to prevent corrupting player save files.<br>
+          • <code>flip_x: true</code> locked for Player slot.
+        </p>
+      </div>
+
+      <div class="panel" style="border:1px solid var(--card-border); border-radius:12px;">
+        <div class="panel-header">Auto-Compiled Directory</div>
+        <pre style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; font-size: 0.74rem; color: var(--visor-cyan); font-family: monospace; line-height: 1.6;">
+your_skin.zip/
+├── _polus_manifest.json          (Engine registration)
+├── characters/
+│   ├── [skin_id].json            (BF offsets, hat & cam anchors)
+│   ├── [skin_id].png             (Uploaded raw texture)
+│   └── [skin_id].xml             (Auto-generated Sparrow atlas)
+├── cosmicubes/
+│   └── [skin_id]_cube.json       (Shop nodes & unlock data)
+└── images/
+    └── icons/
+        └── icon-[skin_id].png    (Stitched 450x150 3-state icon)</pre>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
