@@ -1,8 +1,9 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
+ * Fully automated pipeline for Boyfriend skins, Cosmicubes, and icon stitching.
  */
 
-// Global State
+// 1. GLOBAL STATE
 const state = {
   rawSpriteFile: null,
   spriteImage: null,
@@ -14,11 +15,11 @@ const state = {
     lose: null,
     win: null
   },
-  hatAnchor: { x: 200, y: 120 },
-  camAnchor: { x: 250, y: 150 }
+  hatAnchor: { x: 0, y: -45 },
+  camAnchor: { x: 100, y: -100 }
 };
 
-// 1. Starfield Background Simulation
+// 2. STARFIELD BACKGROUND SIMULATION
 const starCanvas = document.getElementById('starfield');
 const starCtx = starCanvas.getContext('2d');
 let stars = [];
@@ -44,13 +45,16 @@ function animateStarfield() {
     starCtx.globalAlpha = s.alpha;
     starCtx.fillRect(s.x, s.y, s.size, s.size);
     s.y -= s.speed;
-    if (s.y < 0) { s.y = starCanvas.height; s.x = Math.random() * starCanvas.width; }
+    if (s.y < 0) {
+      s.y = starCanvas.height;
+      s.x = Math.random() * starCanvas.width;
+    }
   });
   requestAnimationFrame(animateStarfield);
 }
 animateStarfield();
 
-// 2. Tab Navigation
+// 3. TAB NAVIGATION
 function switchTab(tabId) {
   document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.pill-btn:not(.export-pill)').forEach(b => b.classList.remove('active'));
@@ -71,7 +75,7 @@ function switchTab(tabId) {
   document.getElementById('subTitle').innerText = titles[tabId];
 }
 
-// 3. Image Slicing & Canvas Rendering Engine
+// 4. CANVAS RENDERING ENGINE
 const charCanvas = document.getElementById('charCanvas');
 const ctx = charCanvas.getContext('2d');
 
@@ -85,7 +89,7 @@ function drawCharacter() {
   const color = document.getElementById('healthColor').value;
 
   ctx.save();
-  // Translate to center & flip horizontally for Boyfriend
+  // Center character & flip horizontally for Boyfriend
   ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
   ctx.scale(-scale, scale);
 
@@ -112,6 +116,7 @@ function drawCharacter() {
   ctx.restore();
 }
 
+// Procedural vector renderer for the placeholder
 function renderProceduralImpostor(c, bodyColor, pose) {
   let offsetX = 0, offsetY = 0, rot = 0;
   if (pose === 'singLEFT')  { offsetX = -20; rot = -0.1; }
@@ -123,10 +128,16 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
-  // Body
+  // Backpack
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
-  c.lineWidth = 8;
+  c.lineWidth = 7;
+  c.beginPath();
+  c.roundRect(-85, -40, 30, 95, 12);
+  c.fill();
+  c.stroke();
+
+  // Body
   c.beginPath();
   c.roundRect(-65, -90, 130, 180, [65, 65, 25, 25]);
   c.fill();
@@ -139,13 +150,19 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.fill();
   c.stroke();
 
+  // Visor Highlight
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.roundRect(-10, -50, 45, 12, 6);
+  c.fill();
+
   c.restore();
 }
 
-// Initial Render
+// Initial draw call
 drawCharacter();
 
-// 4. File Upload Handlers
+// 5. FILE UPLOAD HANDLERS
 function handleSpriteUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -185,7 +202,7 @@ function handleIconUpload(slot, e) {
   reader.readAsDataURL(file);
 }
 
-// 5. Interactive WASD & Arrow Key Listener
+// 6. WASD & ARROW KEYS LISTENER (Boyfriend Poses)
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   let newPose = null;
@@ -208,7 +225,7 @@ window.addEventListener('keyup', () => {
   drawCharacter();
 });
 
-// 6. Draggable Anchors (Calculates coordinates relative to character center)
+// 7. DRAGGABLE ANCHORS (Calculates relative pixel offsets)
 function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
   const el = document.getElementById(elementId);
   const container = document.getElementById('stageCanvasContainer');
@@ -221,10 +238,10 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    el.style.left = `${x - 20}px`;
-    el.style.top = `${y - 10}px`;
+    el.style.left = `${x - 25}px`;
+    el.style.top = `${y - 12}px`;
 
-    // Coordinates relative to stage center
+    // Calculate position relative to stage center
     const relX = Math.round(x - rect.width / 2);
     const relY = Math.round(y - rect.height / 2);
     stateTarget.x = relX;
@@ -238,13 +255,13 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
 setupDraggableAnchor('hatMarker', 'hatCoords', state.hatAnchor);
 setupDraggableAnchor('camMarker', 'camCoords', state.camAnchor);
 
-// Set initial visual positions
+// Set initial visual positions for markers
 document.getElementById('hatMarker').style.left = '46%';
 document.getElementById('hatMarker').style.top = '28%';
 document.getElementById('camMarker').style.left = '58%';
 document.getElementById('camMarker').style.top = '45%';
 
-// 7. Cosmicube Interactive Inspector
+// 8. COSMICUBE INTERACTIVE SHOP INSPECTOR
 function selectNode(name, cost, nodeEl) {
   document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
   nodeEl.classList.add('selected');
@@ -261,7 +278,7 @@ function toggleCurrency(mode) {
   document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
 }
 
-// 8. 450x150 Icon Stitching Generator
+// 9. AUTOMATED 450x150 ICON STITCHER
 async function generateStitchedIconBlob() {
   const offCanvas = document.createElement('canvas');
   offCanvas.width = 450;
@@ -276,7 +293,8 @@ async function generateStitchedIconBlob() {
     if (iconImg) {
       oCtx.drawImage(iconImg, 0, 0, iconImg.width, iconImg.height, dx, 0, 150, 150);
     } else {
-      // Auto-Generated Icon Fallback
+      // Auto-generated 3-state visor fallback
+      oCtx.save();
       oCtx.fillStyle = i === 1 ? '#ff3344' : (i === 2 ? '#fde047' : '#7feaff');
       oCtx.beginPath();
       oCtx.roundRect(dx + 25, 45, 100, 60, 20);
@@ -284,13 +302,46 @@ async function generateStitchedIconBlob() {
       oCtx.strokeStyle = '#000000';
       oCtx.lineWidth = 6;
       oCtx.stroke();
+
+      if (i === 1) {
+        // Crack lines for losing icon
+        oCtx.strokeStyle = '#000000';
+        oCtx.lineWidth = 4;
+        oCtx.beginPath();
+        oCtx.moveTo(dx + 65, 45);
+        oCtx.lineTo(dx + 80, 75);
+        oCtx.lineTo(dx + 70, 105);
+        oCtx.stroke();
+      }
+      oCtx.restore();
     }
   });
 
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 9. Full Binary Auto-Bundler (.ZIP)
+// 10. AUTO-BAKED FALLBACK SPRITESHEET (Ensures zero game crashes without user art)
+async function generateFallbackSpritesheet(bodyColor) {
+  const sheet = document.createElement('canvas');
+  const frameW = 200, frameH = 200;
+  sheet.width = frameW * 4;  // 4 columns
+  sheet.height = frameH * 2; // 2 rows
+  const sCtx = sheet.getContext('2d');
+
+  const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT', 'peace', 'idle', 'idle'];
+  poses.forEach((pose, i) => {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    sCtx.save();
+    sCtx.translate(col * frameW + frameW / 2, row * frameH + frameH / 2);
+    renderProceduralImpostor(sCtx, bodyColor, pose);
+    sCtx.restore();
+  });
+
+  return new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
+}
+
+// 11. FULL BINARY AUTO-BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
@@ -298,8 +349,9 @@ async function bundleModZip() {
   const version = document.getElementById('engineVersion').value;
   const cubeTitle = document.getElementById('cubeTitle').value;
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
+  const bodyColor = document.getElementById('healthColor').value;
 
-  // A. Manifest
+  // A. Engine Manifest
   zip.file("_polus_manifest.json", JSON.stringify({
     target_engine: "vs_impostor_v4_legacy",
     min_version: version,
@@ -309,7 +361,7 @@ async function bundleModZip() {
     auto_compiled: true
   }, null, 2));
 
-  // B. Character Config JSON (Includes Hat & Cam Anchors)
+  // B. Boyfriend Character Config JSON
   zip.folder("characters").file(`${skinId}.json`, JSON.stringify({
     animations: [
       { anim: "idle", name: "idle", fps: 24, loop: false, offsets: [0, 0] },
@@ -336,18 +388,31 @@ async function bundleModZip() {
   }, null, 2));
 
   // C. Spritesheet PNG & Sparrow XML
+  let frameW = 200, frameH = 200;
+  let cols = state.cols, rows = state.rows;
+
   if (state.rawSpriteFile) {
+    // User uploaded custom art
     zip.folder("characters").file(`${skinId}.png`, state.rawSpriteFile);
+    frameW = Math.floor(state.spriteImage.width / state.cols);
+    frameH = Math.floor(state.spriteImage.height / state.rows);
+  } else {
+    // Auto-generate the fallback spritesheet PNG
+    const fallbackPngBlob = await generateFallbackSpritesheet(bodyColor);
+    zip.folder("characters").file(`${skinId}.png`, fallbackPngBlob);
+    cols = 4;
+    rows = 2;
+    frameW = 200;
+    frameH = 200;
   }
 
-  const frameW = state.spriteImage ? Math.floor(state.spriteImage.width / state.cols) : 150;
-  const frameH = state.spriteImage ? Math.floor(state.spriteImage.height / state.rows) : 150;
+  // Construct valid Sparrow XML
   const animNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
   let xml = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
-  for (let i = 0; i < state.cols * state.rows; i++) {
+  for (let i = 0; i < cols * rows; i++) {
     const aName = animNames[i % animNames.length];
-    const x = (i % state.cols) * frameW;
-    const y = Math.floor(i / state.cols) * frameH;
+    const x = (i % cols) * frameW;
+    const y = Math.floor(i / cols) * frameH;
     xml += `  <SubTexture name="${aName}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
   }
   xml += `</TextureAtlas>`;
@@ -362,7 +427,7 @@ async function bundleModZip() {
     price: parseInt(document.getElementById('nodeCostInput').value) || 1000
   }, null, 2));
 
-  // E. 450x150 Stitched Health Icon
+  // E. 450x150 Stitched Health Icon Strip
   const iconBlob = await generateStitchedIconBlob();
   zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
