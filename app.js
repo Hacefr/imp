@@ -1,6 +1,6 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Fully automated pipeline for Boyfriend skins, Cosmicubes, and icon stitching.
+ * Engineered for NightmareVision Engine & VS Impostor: Legacy content loading.
  */
 
 // 1. GLOBAL STATE
@@ -89,16 +89,13 @@ function drawCharacter() {
   const color = document.getElementById('healthColor').value;
 
   ctx.save();
-  // Center character & flip horizontally for Boyfriend
   ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
   ctx.scale(-scale, scale);
 
   if (state.spriteImage) {
-    // Render the real uploaded sliced frame
     const frameW = state.spriteImage.width / state.cols;
     const frameH = state.spriteImage.height / state.rows;
     
-    // Map current pose to grid frame index
     const poseIndexMap = { idle: 0, singLEFT: 1, singDOWN: 2, singUP: 3, singRIGHT: 4 };
     const frameIndex = poseIndexMap[state.activePose] || 0;
     
@@ -109,7 +106,6 @@ function drawCharacter() {
 
     ctx.drawImage(state.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH / 2, frameW, frameH);
   } else {
-    // Procedural Fallback Impostor
     renderProceduralImpostor(ctx, color, state.activePose);
   }
 
@@ -149,7 +145,7 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.fill();
   c.stroke();
 
-  // Visor Highlight
+  // Visor Shine
   c.fillStyle = '#ffffff';
   c.beginPath();
   c.roundRect(-10, -50, 45, 12, 6);
@@ -158,7 +154,6 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.restore();
 }
 
-// Initial draw call
 drawCharacter();
 
 // 5. FILE UPLOAD HANDLERS
@@ -201,7 +196,7 @@ function handleIconUpload(slot, e) {
   reader.readAsDataURL(file);
 }
 
-// 6. WASD & ARROW KEYS LISTENER (Boyfriend Poses)
+// 6. WASD & ARROW KEYS LISTENER
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   let newPose = null;
@@ -224,7 +219,7 @@ window.addEventListener('keyup', () => {
   drawCharacter();
 });
 
-// 7. DRAGGABLE ANCHORS (Calculates relative pixel offsets)
+// 7. DRAGGABLE ANCHORS
 function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
   const el = document.getElementById(elementId);
   const container = document.getElementById('stageCanvasContainer');
@@ -240,7 +235,6 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
     el.style.left = `${x - 25}px`;
     el.style.top = `${y - 12}px`;
 
-    // Coordinates relative to stage center
     const relX = Math.round(x - rect.width / 2);
     const relY = Math.round(y - rect.height / 2);
     stateTarget.x = relX;
@@ -254,13 +248,12 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
 setupDraggableAnchor('hatMarker', 'hatCoords', state.hatAnchor);
 setupDraggableAnchor('camMarker', 'camCoords', state.camAnchor);
 
-// Set initial visual positions for markers
 document.getElementById('hatMarker').style.left = '46%';
 document.getElementById('hatMarker').style.top = '28%';
 document.getElementById('camMarker').style.left = '58%';
 document.getElementById('camMarker').style.top = '45%';
 
-// 8. COSMICUBE INTERACTIVE SHOP INSPECTOR
+// 8. COSMICUBE SHOP INSPECTOR
 function selectNode(name, cost, nodeEl) {
   document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
   nodeEl.classList.add('selected');
@@ -284,7 +277,6 @@ async function generateStitchedIconBlob() {
   offCanvas.height = 150;
   const oCtx = offCanvas.getContext('2d');
 
-  // Slot 0: Normal, Slot 1: Lose, Slot 2: Win
   const slots = [state.icons.normal, state.icons.lose, state.icons.win];
 
   slots.forEach((iconImg, i) => {
@@ -292,7 +284,6 @@ async function generateStitchedIconBlob() {
     if (iconImg) {
       oCtx.drawImage(iconImg, 0, 0, iconImg.width, iconImg.height, dx, 0, 150, 150);
     } else {
-      // Auto-generated 3-state visor fallback
       oCtx.save();
       oCtx.fillStyle = i === 1 ? '#ff3344' : (i === 2 ? '#fde047' : '#7feaff');
       oCtx.beginPath();
@@ -303,7 +294,6 @@ async function generateStitchedIconBlob() {
       oCtx.stroke();
 
       if (i === 1) {
-        // Crack lines for losing icon
         oCtx.strokeStyle = '#000000';
         oCtx.lineWidth = 4;
         oCtx.beginPath();
@@ -319,12 +309,12 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 10. AUTO-BAKED FALLBACK SPRITESHEET (Ensures zero game crashes without user art)
+// 10. AUTO-BAKED FALLBACK SPRITESHEET
 async function generateFallbackSpritesheet(bodyColor) {
   const sheet = document.createElement('canvas');
   const frameW = 200, frameH = 200;
-  sheet.width = frameW * 4;  // 4 columns
-  sheet.height = frameH * 2; // 2 rows
+  sheet.width = frameW * 4;
+  sheet.height = frameH * 2;
   const sCtx = sheet.getContext('2d');
 
   const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT', 'peace', 'idle', 'idle'];
@@ -340,7 +330,7 @@ async function generateFallbackSpritesheet(bodyColor) {
   return new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
 }
 
-// 11. FULL BINARY AUTO-BUNDLER (.ZIP)
+// 11. UNIVERSAL HYBRID ZIP BUNDLER
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
@@ -350,7 +340,7 @@ async function bundleModZip() {
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const bodyColor = document.getElementById('healthColor').value;
 
-  // A. Engine Metadata (meta.json & _polymod_meta.json at root for modloaders)
+  // A. NightmareVision & Polymod Engine Metadata (Strictly global: false)
   const metaData = {
     name: skinId,
     title: cubeTitle || "Custom BF Skin",
@@ -364,21 +354,18 @@ async function bundleModZip() {
     icon: "icon.png"
   };
 
-  zip.file("meta.json", JSON.stringify(metaData, null, 2));
-  zip.file("_polymod_meta.json", JSON.stringify(metaData, null, 2));
-
-  // Legacy manifest guard
-  zip.file("_polus_manifest.json", JSON.stringify({
+  const metaString = JSON.stringify(metaData, null, 2);
+  const manifestString = JSON.stringify({
     target_engine: "vs_impostor_v4_legacy",
     min_version: version,
     character_type: "boyfriend_skin",
     skin_id: skinId,
     save_prefix: `v4skin_${skinId}`,
     auto_compiled: true
-  }, null, 2));
+  }, null, 2);
 
   // B. Boyfriend Character Config JSON
-  zip.folder("characters").file(`${skinId}.json`, JSON.stringify({
+  const charConfigString = JSON.stringify({
     animations: [
       { anim: "idle", name: "idle", fps: 24, loop: false, offsets: [0, 0] },
       { anim: "singLEFT", name: "singLEFT", fps: 24, loop: false, offsets: [0, 0] },
@@ -401,56 +388,83 @@ async function bundleModZip() {
     flip_x: true,
     no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
     healthbar_colors: [255, 43, 61]
-  }, null, 2));
+  }, null, 2);
 
-  // C. Spritesheet PNG & Sparrow XML
+  // C. Spritesheet Image Data
+  let spriteBlob;
   let frameW = 200, frameH = 200;
   let cols = state.cols, rows = state.rows;
 
   if (state.rawSpriteFile) {
-    // User uploaded custom art
-    zip.folder("characters").file(`${skinId}.png`, state.rawSpriteFile);
+    spriteBlob = state.rawSpriteFile;
     frameW = Math.floor(state.spriteImage.width / state.cols);
     frameH = Math.floor(state.spriteImage.height / state.rows);
   } else {
-    // Auto-generate the fallback spritesheet PNG
-    const fallbackPngBlob = await generateFallbackSpritesheet(bodyColor);
-    zip.folder("characters").file(`${skinId}.png`, fallbackPngBlob);
+    spriteBlob = await generateFallbackSpritesheet(bodyColor);
     cols = 4;
     rows = 2;
     frameW = 200;
     frameH = 200;
   }
 
-  // Construct valid Sparrow XML
+  // D. Construct Sparrow XML
   const animNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
-  let xml = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
+  let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
   for (let i = 0; i < cols * rows; i++) {
     const aName = animNames[i % animNames.length];
     const x = (i % cols) * frameW;
     const y = Math.floor(i / cols) * frameH;
-    xml += `  <SubTexture name="${aName}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
+    xmlString += `  <SubTexture name="${aName}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
   }
-  xml += `</TextureAtlas>`;
-  zip.folder("characters").file(`${skinId}.xml`, xml);
+  xmlString += `</TextureAtlas>`;
 
-  // D. Cosmicube JSON
-  zip.folder("cosmicubes").file(`${skinId}_cube.json`, JSON.stringify({
+  // E. Cosmicube JSON
+  const cubeConfigString = JSON.stringify({
     title: cubeTitle,
     reward_type: "boyfriend_skin",
     reward_character: skinId,
     save_key: `v4skin_${skinId}_unlock`,
     price: parseInt(document.getElementById('nodeCostInput').value) || 1000
-  }, null, 2));
+  }, null, 2);
 
-  // E. Stitched Icons & Menu Icon
+  // F. Icon Strip & Menu Icon
   const iconBlob = await generateStitchedIconBlob();
-  // 1. Root icon.png for the modloader menu
-  zip.file("icon.png", iconBlob);
-  // 2. In-game 450x150 health icon strip
-  zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-  // F. Trigger Download (Flat root structure)
+  // -------------------------------------------------------------
+  // HYBRID INJECTION (Guarantees compatibility with all mod loaders)
+  // -------------------------------------------------------------
+
+  // 1. Files at Flat Root (for loaders that inspect root directly)
+  zip.file("meta.json", metaString);
+  zip.file("_polymod_meta.json", metaString);
+  zip.file("_polus_manifest.json", manifestString);
+  zip.file("icon.png", iconBlob);
+
+  // 2. Files inside Root Mod Folder (for loaders expecting content/mod_folder/)
+  const modFolder = zip.folder(skinId);
+  modFolder.file("meta.json", metaString);
+  modFolder.file("_polymod_meta.json", metaString);
+  modFolder.file("_polus_manifest.json", manifestString);
+  modFolder.file("icon.png", iconBlob);
+
+  // Inject Characters folder (both places)
+  zip.folder("characters").file(`${skinId}.json`, charConfigString);
+  zip.folder("characters").file(`${skinId}.png`, spriteBlob);
+  zip.folder("characters").file(`${skinId}.xml`, xmlString);
+
+  modFolder.folder("characters").file(`${skinId}.json`, charConfigString);
+  modFolder.folder("characters").file(`${skinId}.png`, spriteBlob);
+  modFolder.folder("characters").file(`${skinId}.xml`, xmlString);
+
+  // Inject Cosmicubes folder (both places)
+  zip.folder("cosmicubes").file(`${skinId}_cube.json`, cubeConfigString);
+  modFolder.folder("cosmicubes").file(`${skinId}_cube.json`, cubeConfigString);
+
+  // Inject Icons folder (both places)
+  zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
+  modFolder.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
+
+  // Trigger Download
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
