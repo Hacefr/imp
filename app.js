@@ -1,0 +1,375 @@
+/**
+ * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
+ */
+
+// Global State
+const state = {
+  rawSpriteFile: null,
+  spriteImage: null,
+  cols: 4,
+  rows: 2,
+  activePose: 'idle',
+  icons: {
+    normal: null,
+    lose: null,
+    win: null
+  },
+  hatAnchor: { x: 200, y: 120 },
+  camAnchor: { x: 250, y: 150 }
+};
+
+// 1. Starfield Background Simulation
+const starCanvas = document.getElementById('starfield');
+const starCtx = starCanvas.getContext('2d');
+let stars = [];
+
+function initStars() {
+  starCanvas.width = window.innerWidth;
+  starCanvas.height = window.innerHeight;
+  stars = Array.from({ length: 85 }, () => ({
+    x: Math.random() * starCanvas.width,
+    y: Math.random() * starCanvas.height,
+    size: Math.random() * 2 + 1,
+    speed: Math.random() * 0.4 + 0.1,
+    alpha: Math.random() * 0.8 + 0.2
+  }));
+}
+window.addEventListener('resize', initStars);
+initStars();
+
+function animateStarfield() {
+  starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+  starCtx.fillStyle = '#ffffff';
+  stars.forEach(s => {
+    starCtx.globalAlpha = s.alpha;
+    starCtx.fillRect(s.x, s.y, s.size, s.size);
+    s.y -= s.speed;
+    if (s.y < 0) { s.y = starCanvas.height; s.x = Math.random() * starCanvas.width; }
+  });
+  requestAnimationFrame(animateStarfield);
+}
+animateStarfield();
+
+// 2. Tab Navigation
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.pill-btn:not(.export-pill)').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + tabId).classList.add('active');
+
+  const tabBtn = {
+    skin: 'tabBtnSkin',
+    cosmic: 'tabBtnCosmic',
+    export: 'tabBtnExport'
+  }[tabId];
+  if (tabBtn) document.getElementById(tabBtn).classList.add('active');
+
+  const titles = {
+    skin: "AUTOMATED BOYFRIEND SKIN COMPILER",
+    cosmic: "COSMICUBE & SHOP ECONOMY",
+    export: "ENGINE MANIFEST & DIRECTORY PIPELINE"
+  };
+  document.getElementById('subTitle').innerText = titles[tabId];
+}
+
+// 3. Image Slicing & Canvas Rendering Engine
+const charCanvas = document.getElementById('charCanvas');
+const ctx = charCanvas.getContext('2d');
+
+function drawCharacter() {
+  ctx.clearRect(0, 0, charCanvas.width, charCanvas.height);
+
+  const antialias = document.getElementById('antialiasSelect').value === 'true';
+  ctx.imageSmoothingEnabled = antialias;
+
+  const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
+  const color = document.getElementById('healthColor').value;
+
+  ctx.save();
+  // Translate to center & flip horizontally for Boyfriend
+  ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
+  ctx.scale(-scale, scale);
+
+  if (state.spriteImage) {
+    // Render the real uploaded sliced frame
+    const frameW = state.spriteImage.width / state.cols;
+    const frameH = state.spriteImage.height / state.rows;
+    
+    // Map current pose to grid frame index
+    const poseIndexMap = { idle: 0, singLEFT: 1, singDOWN: 2, singUP: 3, singRIGHT: 4 };
+    const frameIndex = poseIndexMap[state.activePose] || 0;
+    
+    const col = frameIndex % state.cols;
+    const row = Math.floor(frameIndex / state.cols) % state.rows;
+    const sx = col * frameW;
+    const sy = row * frameH;
+
+    ctx.drawImage(state.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH / 2, frameW, frameH);
+  } else {
+    // Procedural Fallback Impostor
+    renderProceduralImpostor(ctx, color, state.activePose);
+  }
+
+  ctx.restore();
+}
+
+function renderProceduralImpostor(c, bodyColor, pose) {
+  let offsetX = 0, offsetY = 0, rot = 0;
+  if (pose === 'singLEFT')  { offsetX = -20; rot = -0.1; }
+  if (pose === 'singDOWN')  { offsetY = 15; }
+  if (pose === 'singUP')    { offsetY = -15; }
+  if (pose === 'singRIGHT') { offsetX = 20; rot = 0.1; }
+
+  c.save();
+  c.translate(offsetX, offsetY);
+  c.rotate(rot);
+
+  // Body
+  c.fillStyle = bodyColor;
+  c.strokeStyle = '#000000';
+  c.lineWidth = 8;
+  c.beginPath();
+  c.roundRect(-65, -90, 130, 180, [65, 65, 25, 25]);
+  c.fill();
+  c.stroke();
+
+  // Visor
+  c.fillStyle = '#7feaff';
+  c.beginPath();
+  c.roundRect(-25, -55, 75, 42, 22);
+  c.fill();
+  c.stroke();
+
+  c.restore();
+}
+
+// Initial Render
+drawCharacter();
+
+// 4. File Upload Handlers
+function handleSpriteUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  state.rawSpriteFile = file;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      state.spriteImage = img;
+      drawCharacter();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateGridSlices() {
+  state.cols = parseInt(document.getElementById('gridCols').value) || 4;
+  state.rows = parseInt(document.getElementById('gridRows').value) || 2;
+  drawCharacter();
+}
+
+function handleIconUpload(slot, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      state.icons[slot] = img;
+      document.getElementById(`icon${slot.charAt(0).toUpperCase() + slot.slice(1)}Status`).innerText = `Loaded (${img.width}x${img.height})`;
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 5. Interactive WASD & Arrow Key Listener
+window.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  let newPose = null;
+
+  if (key === 'arrowleft' || key === 'a') newPose = 'singLEFT';
+  if (key === 'arrowdown' || key === 's') newPose = 'singDOWN';
+  if (key === 'arrowup' || key === 'w') newPose = 'singUP';
+  if (key === 'arrowright' || key === 'd') newPose = 'singRIGHT';
+
+  if (newPose && state.activePose !== newPose) {
+    state.activePose = newPose;
+    document.getElementById('activePoseName').innerText = newPose;
+    drawCharacter();
+  }
+});
+
+window.addEventListener('keyup', () => {
+  state.activePose = 'idle';
+  document.getElementById('activePoseName').innerText = 'idle';
+  drawCharacter();
+});
+
+// 6. Draggable Anchors (Calculates coordinates relative to character center)
+function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
+  const el = document.getElementById(elementId);
+  const container = document.getElementById('stageCanvasContainer');
+  let dragging = false;
+
+  el.addEventListener('mousedown', () => dragging = true);
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    el.style.left = `${x - 20}px`;
+    el.style.top = `${y - 10}px`;
+
+    // Coordinates relative to stage center
+    const relX = Math.round(x - rect.width / 2);
+    const relY = Math.round(y - rect.height / 2);
+    stateTarget.x = relX;
+    stateTarget.y = relY;
+
+    document.getElementById(coordDisplayId).innerText = `${relX}, ${relY}`;
+  });
+  window.addEventListener('mouseup', () => dragging = false);
+}
+
+setupDraggableAnchor('hatMarker', 'hatCoords', state.hatAnchor);
+setupDraggableAnchor('camMarker', 'camCoords', state.camAnchor);
+
+// Set initial visual positions
+document.getElementById('hatMarker').style.left = '46%';
+document.getElementById('hatMarker').style.top = '28%';
+document.getElementById('camMarker').style.left = '58%';
+document.getElementById('camMarker').style.top = '45%';
+
+// 7. Cosmicube Interactive Inspector
+function selectNode(name, cost, nodeEl) {
+  document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
+  nodeEl.classList.add('selected');
+  document.getElementById('nodeNameInput').value = name;
+  document.getElementById('nodeCostInput').value = cost;
+}
+
+function updateActiveNodeCost(val) {
+  const selectedNode = document.querySelector('.tree-node.selected .node-cost');
+  if (selectedNode) selectedNode.innerText = val > 0 ? val : 'FREE';
+}
+
+function toggleCurrency(mode) {
+  document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
+}
+
+// 8. 450x150 Icon Stitching Generator
+async function generateStitchedIconBlob() {
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = 450;
+  offCanvas.height = 150;
+  const oCtx = offCanvas.getContext('2d');
+
+  // Slot 0: Normal, Slot 1: Lose, Slot 2: Win
+  const slots = [state.icons.normal, state.icons.lose, state.icons.win];
+
+  slots.forEach((iconImg, i) => {
+    const dx = i * 150;
+    if (iconImg) {
+      oCtx.drawImage(iconImg, 0, 0, iconImg.width, iconImg.height, dx, 0, 150, 150);
+    } else {
+      // Auto-Generated Icon Fallback
+      oCtx.fillStyle = i === 1 ? '#ff3344' : (i === 2 ? '#fde047' : '#7feaff');
+      oCtx.beginPath();
+      oCtx.roundRect(dx + 25, 45, 100, 60, 20);
+      oCtx.fill();
+      oCtx.strokeStyle = '#000000';
+      oCtx.lineWidth = 6;
+      oCtx.stroke();
+    }
+  });
+
+  return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
+}
+
+// 9. Full Binary Auto-Bundler (.ZIP)
+async function bundleModZip() {
+  const zip = new JSZip();
+  const rawId = document.getElementById('skinId').value || 'custom_bf';
+  const skinId = rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const version = document.getElementById('engineVersion').value;
+  const cubeTitle = document.getElementById('cubeTitle').value;
+  const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
+
+  // A. Manifest
+  zip.file("_polus_manifest.json", JSON.stringify({
+    target_engine: "vs_impostor_v4_legacy",
+    min_version: version,
+    character_type: "boyfriend_skin",
+    skin_id: skinId,
+    save_prefix: `v4skin_${skinId}`,
+    auto_compiled: true
+  }, null, 2));
+
+  // B. Character Config JSON (Includes Hat & Cam Anchors)
+  zip.folder("characters").file(`${skinId}.json`, JSON.stringify({
+    animations: [
+      { anim: "idle", name: "idle", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singLEFT", name: "singLEFT", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singDOWN", name: "singDOWN", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singUP", name: "singUP", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singRIGHT", name: "singRIGHT", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singLEFTmiss", name: "singLEFTmiss", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singDOWNmiss", name: "singDOWNmiss", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singUPmiss", name: "singUPmiss", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "singRIGHTmiss", name: "singRIGHTmiss", fps: 24, loop: false, offsets: [0, 0] },
+      { anim: "peace", name: "peace", fps: 24, loop: false, offsets: [0, 0] }
+    ],
+    image: `characters/${skinId}`,
+    scale: scale,
+    sing_duration: 4,
+    healthicon: skinId,
+    position: [0, 0],
+    camera_position: [state.camAnchor.x, state.camAnchor.y],
+    hat_position: [state.hatAnchor.x, state.hatAnchor.y],
+    flip_x: true,
+    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
+    healthbar_colors: [255, 43, 61]
+  }, null, 2));
+
+  // C. Spritesheet PNG & Sparrow XML
+  if (state.rawSpriteFile) {
+    zip.folder("characters").file(`${skinId}.png`, state.rawSpriteFile);
+  }
+
+  const frameW = state.spriteImage ? Math.floor(state.spriteImage.width / state.cols) : 150;
+  const frameH = state.spriteImage ? Math.floor(state.spriteImage.height / state.rows) : 150;
+  const animNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
+  let xml = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
+  for (let i = 0; i < state.cols * state.rows; i++) {
+    const aName = animNames[i % animNames.length];
+    const x = (i % state.cols) * frameW;
+    const y = Math.floor(i / state.cols) * frameH;
+    xml += `  <SubTexture name="${aName}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
+  }
+  xml += `</TextureAtlas>`;
+  zip.folder("characters").file(`${skinId}.xml`, xml);
+
+  // D. Cosmicube JSON
+  zip.folder("cosmicubes").file(`${skinId}_cube.json`, JSON.stringify({
+    title: cubeTitle,
+    reward_type: "boyfriend_skin",
+    reward_character: skinId,
+    save_key: `v4skin_${skinId}_unlock`,
+    price: parseInt(document.getElementById('nodeCostInput').value) || 1000
+  }, null, 2));
+
+  // E. 450x150 Stitched Health Icon
+  const iconBlob = await generateStitchedIconBlob();
+  zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
+
+  // F. Trigger Download
+  const finalZipBlob = await zip.generateAsync({ type: "blob" });
+  const downloadLink = document.createElement('a');
+  downloadLink.href = URL.createObjectURL(finalZipBlob);
+  downloadLink.download = `${skinId}_v4_legacy_bundle.zip`;
+  downloadLink.click();
+}
