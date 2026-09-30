@@ -5,6 +5,7 @@
   --white-glow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.35);
   --white-glow-hover: 0 0 15px rgba(255, 255, 255, 1), 0 0 30px rgba(255, 255, 255, 0.6);
   --red-glow: 0 0 12px #ff2b3d, 0 0 24px rgba(255, 43, 61, 0.6);
+  --purple-glow: 0 0 12px #c084fc, 0 0 24px rgba(192, 132, 252, 0.6);
   --text-main: #ffffff;
   --text-dim: #94a3b8;
   --impostor-red: #ff2b3d;
@@ -21,7 +22,7 @@ body { background: var(--bg-black); color: var(--text-main); height: 100vh; disp
 header {
   position: relative;
   z-index: 2;
-  padding: 12px 24px 6px;
+  padding: 10px 24px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -30,7 +31,7 @@ header {
 
 .main-logo {
   font-family: 'Montserrat', sans-serif;
-  font-size: 2rem;
+  font-size: 1.9rem;
   font-weight: 900;
   letter-spacing: 4px;
   text-transform: uppercase;
@@ -41,16 +42,16 @@ header {
   gap: 10px;
 }
 
-.bone-icon { width: 26px; height: 26px; fill: #fff; filter: drop-shadow(0 0 8px #fff); }
+.bone-icon { width: 24px; height: 24px; fill: #fff; filter: drop-shadow(0 0 8px #fff); }
 
-.pill-navbar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.pill-navbar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .pill-btn {
   background: #000;
   border: 2px solid #ffffff;
   color: #ffffff;
-  padding: 5px 18px;
+  padding: 5px 16px;
   border-radius: 9999px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -60,9 +61,22 @@ header {
   align-items: center;
   gap: 6px;
 }
-.pill-btn svg { width: 15px; height: 15px; fill: currentColor; }
+.pill-btn svg { width: 14px; height: 14px; fill: currentColor; }
 .pill-btn:hover { box-shadow: var(--white-glow-hover); transform: translateY(-2px); }
 .pill-btn.active { background: #fff; color: #000; box-shadow: var(--white-glow-hover); }
+
+/* .imp Project Button Styling */
+.pill-btn.imp-pill {
+  border-color: #c084fc;
+  color: #c084fc;
+  box-shadow: var(--purple-glow);
+}
+.pill-btn.imp-pill:hover {
+  background: #c084fc;
+  color: #000;
+  box-shadow: 0 0 18px #c084fc;
+}
+
 .pill-btn.export-pill { border-color: #ff3344; color: #ff3344; box-shadow: var(--red-glow); }
 .pill-btn.export-pill:hover { background: #ff3344; color: #fff; }
 
