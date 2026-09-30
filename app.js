@@ -16,8 +16,7 @@ const state = {
     win: null
   },
   hatAnchor: { x: 0, y: -45 },
-  camAnchor: { x: 100, y: -100 },
-  stageOffset: { x: 0, y: -320 } // Pulls character down to the floor
+  camAnchor: { x: 100, y: -100 }
 };
 
 // 2. STARFIELD BACKGROUND SIMULATION
@@ -88,10 +87,12 @@ function drawCharacter() {
 
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const color = document.getElementById('healthColor').value;
+  const isFlippedInStudio = document.getElementById('flipXSelect').value === 'true';
 
   ctx.save();
   ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
-  ctx.scale(scale, scale);
+  // In studio preview, face left toward the stage center
+  ctx.scale(isFlippedInStudio ? -scale : scale, scale);
 
   if (state.spriteImage) {
     const frameW = state.spriteImage.width / state.cols;
@@ -113,6 +114,7 @@ function drawCharacter() {
   ctx.restore();
 }
 
+// Standard FNF Character Template: Drawn facing Right (engine flips to face Left on player side)
 function renderProceduralImpostor(c, bodyColor, pose) {
   let offsetX = 0, offsetY = 0, rot = 0;
   if (pose === 'singLEFT')  { offsetX = -20; rot = -0.1; }
@@ -124,12 +126,12 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
-  // Backpack
+  // Backpack on Left (-X)
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
   c.lineWidth = 7;
   c.beginPath();
-  c.roundRect(55, -40, 30, 95, 12);
+  c.roundRect(-85, -40, 30, 95, 12);
   c.fill();
   c.stroke();
 
@@ -139,17 +141,17 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.fill();
   c.stroke();
 
-  // Visor (Facing Left)
+  // Visor on Right (+X)
   c.fillStyle = '#7feaff';
   c.beginPath();
-  c.roundRect(-50, -55, 75, 42, 22);
+  c.roundRect(-25, -55, 75, 42, 22);
   c.fill();
   c.stroke();
 
   // Visor Shine
   c.fillStyle = '#ffffff';
   c.beginPath();
-  c.roundRect(-35, -50, 45, 12, 6);
+  c.roundRect(-10, -50, 45, 12, 6);
   c.fill();
 
   c.restore();
@@ -310,7 +312,7 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 10. AUTO-BAKED FALLBACK SPRITESHEET (Each animation frame cleanly separated)
+// 10. AUTO-BAKED FALLBACK SPRITESHEET
 async function generateFallbackSpritesheet(bodyColor) {
   const sheet = document.createElement('canvas');
   const frameW = 200, frameH = 200;
@@ -377,6 +379,11 @@ async function bundleModZip() {
   const cost = parseInt(document.getElementById('nodeCostInput').value) || 100;
   const currencyType = document.getElementById('currencyMode').value === 'custom' ? 'modpods' : 'beans';
 
+  // Dynamic Offset and Flip from UI
+  const offsetX = parseInt(document.getElementById('stageOffsetX').value) || 0;
+  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 350; // Positive 350 drops onto floor
+  const isFlipX = document.getElementById('flipXSelect').value === 'true'; // True = inverts to face opponent in-game
+
   // A. Metadata
   const metaData = {
     name: skinId,
@@ -400,11 +407,11 @@ async function bundleModZip() {
     name: skinId,
     assetPath: `characters/${skinId}`,
     scale: scale,
-    offsets: [state.stageOffset.x, state.stageOffset.y], // [0, -320] anchors him to the carpet floor!
+    offsets: [offsetX, offsetY], // Uses positive Y to drop onto floor
     cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
     danceEvery: 2,
     singTime: 6,
-    flipX: false, // Correct orientation: faces Grey and GF
+    flipX: isFlipX, // Inverts horizontally so character faces the opponent
     isPixel: document.getElementById('antialiasSelect').value === 'false',
     startingAnimation: "idle",
     healthIcon: {
