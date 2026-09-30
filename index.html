@@ -66,7 +66,7 @@
       </button>
     </nav>
 
-    <div class="section-title-glow" id="subTitle">AUTOMATED BOYFRIEND SKIN COMPILER</div>
+    <div class="section-title-glow" id="subTitle">AUTOMATED MULTI-CHARACTER & COSMICUBE COMPILER</div>
   </header>
 
   <!-- Viewport -->
@@ -176,6 +176,15 @@
 
       <!-- Center Stage: Stage Simulator & Controls -->
       <div class="stage-wrapper">
+        <!-- Multi-Character Roster Bar -->
+        <div class="roster-bar">
+          <span style="font-size:0.7rem; font-weight:800; color:var(--text-dim); text-transform:uppercase;">Characters:</span>
+          <div class="roster-tabs" id="rosterTabs"></div>
+          <button class="pill-btn mini" style="background:var(--impostor-red); border-color:var(--impostor-red);" onclick="addNewCharacter()">
+            ➕ Add Character
+          </button>
+        </div>
+
         <div class="stage-hud">
           <div style="display: flex; gap: 8px; align-items:center;">
             <span style="font-size:0.75rem; font-weight:800;">STAGE SIMULATOR</span>
@@ -221,31 +230,30 @@
         
         <div class="form-group">
           <label>Skin Internal ID</label>
-          <input type="text" id="skinId" value="bf_star_impostor" />
+          <input type="text" id="skinId" value="bf_star_impostor" oninput="updateCurrentCharacterProp('skinId', this.value)" />
         </div>
 
         <div class="form-group">
           <label>Skin Display Name</label>
-          <input type="text" id="skinDisplayName" value="Star Impostor" oninput="syncSkinDisplayName()" />
+          <input type="text" id="skinDisplayName" value="Star Impostor" oninput="updateCurrentCharacterProp('skinDisplayName', this.value); syncSkinDisplayName();" />
         </div>
 
         <div class="form-group">
           <label>Scale Multiplier</label>
           <div style="display:flex; gap:6px;">
-            <input type="number" id="charScale" value="1.75" step="0.05" oninput="drawCharacter()" />
+            <input type="number" id="charScale" value="1.75" step="0.05" oninput="updateCurrentCharacterProp('charScale', this.value); drawCharacter();" />
             <button class="pill-btn mini" onclick="autoCalibrateScale()">Auto-Fit (420px)</button>
           </div>
-          <span style="font-size:0.65rem; color:var(--visor-cyan);">Automatically matches Pink and BF in-game height</span>
         </div>
 
         <div class="grid-2">
           <div class="form-group">
             <label>Stage Offset X</label>
-            <input type="number" id="stageOffsetX" value="0" />
+            <input type="number" id="stageOffsetX" value="0" oninput="updateCurrentCharacterProp('stageOffsetX', this.value)" />
           </div>
           <div class="form-group">
             <label>Stage Offset Y (Floor)</label>
-            <input type="number" id="stageOffsetY" value="400" />
+            <input type="number" id="stageOffsetY" value="400" oninput="updateCurrentCharacterProp('stageOffsetY', this.value)" />
           </div>
         </div>
 
@@ -280,7 +288,7 @@
 
         <div class="form-group">
           <label>Health Bar Color</label>
-          <input type="color" id="healthColor" value="#ffdd00" oninput="drawCharacter()" />
+          <input type="color" id="healthColor" value="#ffdd00" oninput="updateCurrentCharacterProp('healthColor', this.value); drawCharacter();" />
         </div>
 
         <div class="form-group">
@@ -294,7 +302,7 @@
 
     </div>
 
-    <!-- TAB 2: Cosmicube Unlock & Carousel -->
+    <!-- TAB 2: Interactive Drag & Drop Cosmicube Board -->
     <div class="tab-view grid-cosmic" id="view-cosmic">
       <div class="panel">
         <div class="panel-header">Cosmicube Economics</div>
@@ -308,10 +316,6 @@
         <div class="form-group">
           <label>Cosmicube Title</label>
           <input type="text" id="cubeTitle" value="Star Crewmate Cube" oninput="syncCubeTitle()" />
-        </div>
-        <div class="form-group">
-          <label>Unlock Cost (Beans)</label>
-          <input type="number" id="nodeCostInput" value="150" oninput="updateActiveNodeCost(this.value)" />
         </div>
 
         <div class="panel-header" style="margin-top:20px;">Cosmicube Graphics</div>
@@ -327,27 +331,27 @@
         </div>
       </div>
 
-      <!-- Center: Cosmicube Shop Screen Preview -->
+      <!-- Center: Draggable Cosmicube Node Canvas -->
       <div class="cosmic-shop">
         <div class="cosmic-banner">
           <div>
             <div style="font-weight:900; font-size:1.05rem;" id="bannerTitle">Star Crewmate Cube</div>
-            <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">Reward Target: Playable Boyfriend Skin</div>
+            <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">Drag & Drop Node Editor (Branch Builder)</div>
           </div>
-          <div class="key-badge" style="font-size:0.85rem; padding:6px 14px; border-color:var(--bean-yellow); color:var(--bean-yellow);" id="currencyBadge">
-            5,000 Beans
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="pill-btn mini" style="background:#22c55e; border-color:#22c55e;" onclick="addNewCosmicubeNode()">
+              ➕ Add Branch Node
+            </button>
+            <div class="key-badge" style="font-size:0.85rem; padding:6px 14px; border-color:var(--bean-yellow); color:var(--bean-yellow);" id="currencyBadge">
+              5,000 Beans
+            </div>
           </div>
         </div>
 
-        <div class="nodes-container">
-          <div class="tree-node selected" onclick="selectNode('Start', 0, this)">
-            <svg viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
-            <div class="node-cost">FREE</div>
-          </div>
-          <div class="tree-node" onclick="selectNode(document.getElementById('skinDisplayName').value, 150, this)">
-            <canvas id="nodeIconCanvas" width="48" height="48"></canvas>
-            <div class="node-cost" id="nodeDisplayCost">150</div>
-          </div>
+        <!-- Draggable Board Container -->
+        <div class="node-board-container" id="nodeBoardContainer">
+          <svg id="nodeLinesSvg"></svg>
+          <div id="nodesLayer"></div>
         </div>
       </div>
 
@@ -355,17 +359,47 @@
       <div class="panel right">
         <div class="panel-header">Selected Node Inspector</div>
         <div class="form-group">
+          <label>Node ID (File Name)</label>
+          <input type="text" id="nodeIdInput" oninput="updateSelectedNodeProp('id', this.value)" />
+        </div>
+        <div class="form-group">
           <label>Reward Display Name</label>
-          <input type="text" id="nodeNameInput" value="Star Impostor" disabled style="opacity:0.8;" />
+          <input type="text" id="nodeNameInput" oninput="updateSelectedNodeProp('title', this.value)" />
         </div>
         <div class="form-group">
-          <label>Item Type</label>
-          <input type="text" value="playerSkin (Boyfriend)" disabled style="opacity:0.6;" />
+          <label>Unlock Cost (Beans)</label>
+          <input type="number" id="nodeCostInput" oninput="updateSelectedNodeProp('cost', parseInt(this.value) || 0)" />
         </div>
         <div class="form-group">
-          <label>Unlock Direction</label>
-          <input type="text" value="north (connected to root)" disabled style="opacity:0.6;" />
+          <label>Reward Type</label>
+          <select id="nodeTypeSelect" onchange="updateSelectedNodeProp('type', this.value)">
+            <option value="playerSkin">playerSkin (Playable Boyfriend)</option>
+            <option value="pet">Pet</option>
+            <option value="hat">Cosmetic</option>
+          </select>
         </div>
+        <div class="form-group">
+          <label>Assigned Character</label>
+          <select id="nodeCharSelect" onchange="updateSelectedNodeProp('charRef', this.value)"></select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Parent Node</label>
+            <select id="nodeParentSelect" onchange="updateSelectedNodeProp('parent', this.value)"></select>
+          </div>
+          <div class="form-group">
+            <label>Branch Direction</label>
+            <select id="nodeDirSelect" onchange="updateSelectedNodeProp('direction', this.value)">
+              <option value="north">North (Up)</option>
+              <option value="south">South (Down)</option>
+              <option value="east">East (Right)</option>
+              <option value="west">West (Left)</option>
+            </select>
+          </div>
+        </div>
+        <button class="pill-btn mini" style="background:#ef4444; border-color:#ef4444; width:100%; margin-top:12px; justify-content:center;" onclick="deleteSelectedNode()">
+          🗑️ Delete Node
+        </button>
       </div>
     </div>
 
@@ -381,11 +415,10 @@
           </select>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
+          • <strong>Multi-Character:</strong> Compiles all characters in your roster into the bundle.<br>
+          • <strong>Branching Nodes:</strong> Automatically maps all draggable nodes to <code>data/cosmicube/[cubeId]/[nodeId].json</code>.<br>
           • <strong>Carousel Slides:</strong> Mounted into <code>images/menu/cosmicube/slides/</code> to eliminate "NO IMAGE".<br>
-          • <strong>Node Renders:</strong> Mounted into <code>images/menu/cosmicube/items/</code> to eliminate node glitches.<br>
-          • <strong>Character Atlas:</strong> Routed through <code>shared/images/characters/</code> with <code>renderType: "sparrow"</code>.<br>
-          • <strong>Taunt Key:</strong> Mapped to <code>"hey"</code>, <code>"peace"</code>, and <code>"taunt"</code> for 100% Spacebar compatibility.<br>
-          • <strong>Project Files:</strong> Export and load <code>.imp</code> packages to never lose your work.
+          • <strong>Node Renders:</strong> Mounted into <code>images/menu/cosmicube/items/</code> to eliminate node glitches.
         </p>
       </div>
 
@@ -397,16 +430,18 @@ your_mod.zip/
 ├── data/cosmicube/
 │   ├── [cube_id].json            (Title & currency header)
 │   └── [cube_id]/
-│       └── [skin_id].json        (Item node connected to root)
+│       ├── [node1].json          (Branch item 1)
+│       └── [node2].json          (Branch item 2)
 ├── characters/
-│   └── [skin_id].json            (Codename & Psych unified config)
+│   ├── [char1].json              (Character 1 config)
+│   └── [char2].json              (Character 2 config)
 ├── images/ & shared/images/
-│   ├── characters/[skin_id].png  (Full unclipped spritesheet)
-│   ├── characters/[skin_id].xml  (Padded Sparrow XML atlas)
-│   ├── icons/icon-[skin_id].png  (2-state / 3-state health strip)
+│   ├── characters/[char].png     (Full unclipped spritesheets)
+│   ├── characters/[char].xml     (Padded Sparrow XML atlases)
+│   ├── icons/icon-[char].png     (Health icon strips)
 │   └── menu/cosmicube/
 │       ├── slides/[cube_id].png  (Carousel shop banner)
-│       └── items/[skin_id].png   (Node tree character portrait)</pre>
+│       └── items/[node].png      (Node tree character portraits)</pre>
       </div>
     </div>
 
