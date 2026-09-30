@@ -17,7 +17,7 @@
 </head>
 <body>
 
-  <!-- Dynamic Starfield -->
+  <!-- Dynamic Starfield Background -->
   <canvas id="starfield"></canvas>
 
   <!-- Header -->
@@ -43,7 +43,7 @@
 
       <button class="pill-btn" id="tabBtnExport" onclick="switchTab('export')">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-        Manifest & Config
+        Manifest & Paths
       </button>
 
       <button class="pill-btn export-pill" onclick="bundleModZip()">
@@ -61,11 +61,11 @@
     <!-- TAB 1: Skin Studio -->
     <div class="tab-view active grid-skin" id="view-skin">
       
-      <!-- Left: Import & Slicer -->
+      <!-- Left Panel: Spritesheet Slicer & Icons -->
       <div class="panel">
         <div class="panel-header">
           <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-          Spritesheet Importer
+          Labeled Spritesheet Slicer
         </div>
 
         <div class="form-group">
@@ -75,48 +75,58 @@
 
         <div class="grid-2">
           <div class="form-group">
-            <label>Columns</label>
-            <input type="number" id="gridCols" value="4" min="1" max="32" oninput="updateGridSlices()" />
+            <label>Columns (Slices)</label>
+            <input type="number" id="gridCols" value="5" min="1" max="32" oninput="updateGridSlices()" />
           </div>
           <div class="form-group">
             <label>Rows</label>
-            <input type="number" id="gridRows" value="2" min="1" max="32" oninput="updateGridSlices()" />
+            <input type="number" id="gridRows" value="1" min="1" max="32" oninput="updateGridSlices()" />
           </div>
         </div>
 
-        <div class="panel-header" style="margin-top: 16px;">
+        <div class="slice-preview-header">
+          <span>Live Slicer Map</span>
+          <span id="frameDimTag">300 x 240 px</span>
+        </div>
+
+        <!-- Scrollable Labeled Slicer Box -->
+        <div class="slicer-container" id="slicerContainer">
+          <canvas id="slicerCanvas"></canvas>
+        </div>
+
+        <div class="panel-header" style="margin-top: 18px;">
           <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
-          3-State Icon Stitcher
+          3-State Health Icons
         </div>
         
         <div class="icon-upload-grid">
           <div class="icon-slot">
-            <label>Normal</label>
+            <label>Normal Icon</label>
             <input type="file" id="iconNormalInput" accept=".png" onchange="handleIconUpload('normal', event)" />
-            <div class="icon-slot-status" id="iconNormalStatus">Empty</div>
+            <div class="icon-slot-status" id="iconNormalStatus">Fallback Active</div>
           </div>
           <div class="icon-slot">
             <label>Lose (&lt;20%)</label>
             <input type="file" id="iconLoseInput" accept=".png" onchange="handleIconUpload('lose', event)" />
-            <div class="icon-slot-status" id="iconLoseStatus">Empty</div>
+            <div class="icon-slot-status" id="iconLoseStatus">Fallback Active</div>
           </div>
           <div class="icon-slot">
             <label>Win (&gt;80%)</label>
             <input type="file" id="iconWinInput" accept=".png" onchange="handleIconUpload('win', event)" />
-            <div class="icon-slot-status" id="iconWinStatus">Empty</div>
+            <div class="icon-slot-status" id="iconWinStatus">Fallback Active</div>
           </div>
         </div>
       </div>
 
-      <!-- Center: Canvas Stage Preview -->
+      <!-- Center Stage: Floor & Scale Simulator -->
       <div class="stage-wrapper">
         <div class="stage-hud">
           <div style="display: flex; gap: 8px; align-items:center;">
-            <span style="font-size:0.75rem; font-weight:800;">LIVE PREVIEW</span>
+            <span style="font-size:0.75rem; font-weight:800;">STAGE FLOOR SIMULATOR</span>
             <span class="key-badge">WASD / Arrow Keys</span>
           </div>
           <div style="font-size:0.72rem; color:var(--text-dim);">
-            Active Pose: <strong id="activePoseName" style="color:#fff;">idle</strong>
+            Active Pose: <strong id="activePoseName" style="color:var(--visor-cyan);">idle</strong>
           </div>
         </div>
 
@@ -124,7 +134,7 @@
           <!-- Hat Anchor Marker -->
           <div class="anchor-marker anchor-hat" id="hatMarker">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 14H7v-4h6v4z"/></svg>
-            Hat Anchor: <span id="hatCoords">0, 0</span>
+            Hat Anchor: <span id="hatCoords">0, -90</span>
           </div>
 
           <!-- Camera Anchor Marker -->
@@ -133,33 +143,37 @@
             Cam Focus: <span id="camCoords">100, -100</span>
           </div>
 
-          <!-- The Real Character Canvas -->
-          <canvas id="charCanvas" width="400" height="400"></canvas>
+          <!-- Visible Ground Line Tag -->
+          <div class="ground-line-tag">STAGE CARPET FLOOR LINE</div>
+
+          <!-- The Real Character Canvas with Ground Simulator -->
+          <canvas id="charCanvas" width="460" height="460"></canvas>
         </div>
       </div>
 
-      <!-- Right: Skin Configuration -->
+      <!-- Right Panel: Calibration & Config -->
       <div class="panel right">
-        <div class="panel-header">Boyfriend Skin Config</div>
+        <div class="panel-header">Character Calibration</div>
+        
         <div class="form-group">
-          <label>Skin ID (Strict Lowercase)</label>
-          <input type="text" id="skinId" value="bf_custom_skin" />
+          <label>Skin Internal ID (Strict Lowercase)</label>
+          <input type="text" id="skinId" value="bf_star_impostor" />
         </div>
+
         <div class="form-group">
-          <label>Health Bar Color</label>
-          <input type="color" id="healthColor" value="#ff2b3d" oninput="drawCharacter()" />
+          <label>Skin Display Name</label>
+          <input type="text" id="skinDisplayName" value="Star Impostor" oninput="syncSkinDisplayName()" />
         </div>
+
         <div class="form-group">
-          <label>Auto-Scale Factor</label>
-          <input type="number" id="charScale" value="1.0" step="0.05" oninput="drawCharacter()" />
+          <label>Scale Multiplier</label>
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="charScale" value="1.75" step="0.05" oninput="drawCharacter()" />
+            <button class="pill-btn mini" onclick="autoCalibrateScale()">Auto-Fit (420px)</button>
+          </div>
+          <span style="font-size:0.65rem; color:var(--visor-cyan);">Automatically matches Pink and BF in-game height</span>
         </div>
-        <div class="form-group">
-          <label>Facing Direction (In-Game Flip)</label>
-          <select id="flipXSelect" onchange="drawCharacter()">
-            <option value="true">Face Opponent (flipX: true - Standard)</option>
-            <option value="false">Face Away (flipX: false)</option>
-          </select>
-        </div>
+
         <div class="grid-2">
           <div class="form-group">
             <label>Stage Offset X</label>
@@ -167,9 +181,15 @@
           </div>
           <div class="form-group">
             <label>Stage Offset Y (Floor)</label>
-            <input type="number" id="stageOffsetY" value="350" />
+            <input type="number" id="stageOffsetY" value="400" />
           </div>
         </div>
+
+        <div class="form-group">
+          <label>Health Bar Color</label>
+          <input type="color" id="healthColor" value="#ffdd00" oninput="drawCharacter()" />
+        </div>
+
         <div class="form-group">
           <label>Antialiasing</label>
           <select id="antialiasSelect" onchange="drawCharacter()">
@@ -181,12 +201,12 @@
 
     </div>
 
-    <!-- TAB 2: Cosmicube Unlock -->
+    <!-- TAB 2: Cosmicube Unlock & Carousel -->
     <div class="tab-view grid-cosmic" id="view-cosmic">
       <div class="panel">
         <div class="panel-header">Cosmicube Economics</div>
         <div class="form-group">
-          <label>Currency Mode</label>
+          <label>Currency Type</label>
           <select id="currencyMode" onchange="toggleCurrency(this.value)">
             <option value="beans">Standard Beans</option>
             <option value="custom">Custom Mod Pods</option>
@@ -194,19 +214,32 @@
         </div>
         <div class="form-group">
           <label>Cosmicube Title</label>
-          <input type="text" id="cubeTitle" value="Legacy Crewmate Cube" />
+          <input type="text" id="cubeTitle" value="Star Crewmate Cube" oninput="syncCubeTitle()" />
         </div>
         <div class="form-group">
-          <label>Cube Entry Cost</label>
-          <input type="number" id="cubeEntryCost" value="1000" />
+          <label>Unlock Cost (Beans)</label>
+          <input type="number" id="nodeCostInput" value="150" oninput="updateActiveNodeCost(this.value)" />
+        </div>
+
+        <div class="panel-header" style="margin-top:20px;">Cosmicube Graphics</div>
+        <div class="form-group">
+          <label>Carousel Slide Banner (.png)</label>
+          <input type="file" id="bannerFileInput" accept=".png" onchange="handleBannerUpload(event)" />
+          <span style="font-size:0.65rem; color:var(--text-dim);">Replaces "NO IMAGE" in shop carousel</span>
+        </div>
+        <div class="form-group">
+          <label>Node Render Portrait (.png)</label>
+          <input type="file" id="nodeRenderInput" accept=".png" onchange="handleNodeRenderUpload(event)" />
+          <span style="font-size:0.65rem; color:var(--text-dim);">Replaces missing-texture box on tree</span>
         </div>
       </div>
 
+      <!-- Center: Cosmicube Shop Screen Preview -->
       <div class="cosmic-shop">
         <div class="cosmic-banner">
           <div>
-            <div style="font-weight:900; font-size:1.05rem;" id="bannerTitle">Legacy Crewmate Cube</div>
-            <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">Reward Target: Boyfriend Player Skin</div>
+            <div style="font-weight:900; font-size:1.05rem;" id="bannerTitle">Star Crewmate Cube</div>
+            <div style="font-size:0.7rem; color:var(--text-dim); text-transform:uppercase;">Reward Target: Playable Boyfriend Skin</div>
           </div>
           <div class="key-badge" style="font-size:0.85rem; padding:6px 14px; border-color:var(--bean-yellow); color:var(--bean-yellow);" id="currencyBadge">
             5,000 Beans
@@ -218,65 +251,69 @@
             <svg viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
             <div class="node-cost">FREE</div>
           </div>
-          <div class="tree-node" onclick="selectNode('Visor Knife', 250, this)">
-            <svg viewBox="0 0 24 24"><path d="M19.59 4.41c-.78-.78-2.05-.78-2.83 0L3 18.17V21h2.83L19.59 7.24c.78-.79.78-2.05 0-2.83zM5.41 19.59L4.41 18.59 15.17 7.83l1 1L5.41 19.59z"/></svg>
-            <div class="node-cost">250</div>
-          </div>
-          <div class="tree-node" onclick="selectNode('Playable Skin', 1000, this)">
-            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
-            <div class="node-cost" id="nodeDisplayCost">1000</div>
+          <div class="tree-node" onclick="selectNode(document.getElementById('skinDisplayName').value, 150, this)">
+            <!-- Mini Render Preview inside Node -->
+            <canvas id="nodeIconCanvas" width="48" height="48"></canvas>
+            <div class="node-cost" id="nodeDisplayCost">150</div>
           </div>
         </div>
       </div>
 
+      <!-- Right: Node Inspector -->
       <div class="panel right">
         <div class="panel-header">Selected Node Inspector</div>
         <div class="form-group">
-          <label>Reward Name</label>
-          <input type="text" id="nodeNameInput" value="Start" />
+          <label>Reward Display Name</label>
+          <input type="text" id="nodeNameInput" value="Star Impostor" disabled style="opacity:0.8;" />
         </div>
         <div class="form-group">
-          <label>Unlock Cost</label>
-          <input type="number" id="nodeCostInput" value="0" oninput="updateActiveNodeCost(this.value)" />
+          <label>Item Type</label>
+          <input type="text" value="playerSkin (Boyfriend)" disabled style="opacity:0.6;" />
+        </div>
+        <div class="form-group">
+          <label>Unlock Direction</label>
+          <input type="text" value="north (connected to root)" disabled style="opacity:0.6;" />
         </div>
       </div>
     </div>
 
-    <!-- TAB 3: Packaging & Manifest -->
+    <!-- TAB 3: Packaging & Verified Directory -->
     <div class="tab-view" id="view-export" style="grid-template-columns: 1fr 1fr; padding: 25px; gap: 25px;">
       <div class="panel" style="border:1px solid var(--card-border); border-radius:12px;">
-        <div class="panel-header">Engine Guard & Collision Safety</div>
+        <div class="panel-header">Verified Engine Specifications</div>
         <div class="form-group">
           <label>Target Engine</label>
           <select id="engineVersion">
-            <option value="4.1.0-legacy">VS Impostor V4.1.0 Legacy</option>
+            <option value="4.1.0-legacy">VS Impostor V4.1.0 Legacy (NightmareVision)</option>
             <option value="4.0.0">VS Impostor V4.0.0 Base</option>
           </select>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
-          • Enforces strict lowercase file names to prevent Steam Deck & Linux crashes.<br>
-          • Injects save namespace to prevent corrupting player save files.<br>
-          • Injects character files into both <code>images/</code> and <code>shared/images/</code>.
+          • <strong>Carousel Slides:</strong> Mounted into <code>images/menu/cosmicube/slides/</code> to eliminate "NO IMAGE".<br>
+          • <strong>Node Renders:</strong> Mounted into <code>images/menu/cosmicube/items/</code> to eliminate node glitches.<br>
+          • <strong>Character Atlas:</strong> Routed through <code>shared/images/characters/</code> with <code>renderType: "sparrow"</code>.<br>
+          • <strong>Taunt Key:</strong> Mapped to <code>"hey"</code>, <code>"peace"</code>, and <code>"taunt"</code> for 100% Spacebar compatibility.
         </p>
       </div>
 
       <div class="panel" style="border:1px solid var(--card-border); border-radius:12px;">
-        <div class="panel-header">Auto-Compiled Directory</div>
+        <div class="panel-header">Auto-Compiled Directory Map</div>
         <pre style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; font-size: 0.74rem; color: var(--visor-cyan); font-family: monospace; line-height: 1.6;">
-your_skin.zip/
-├── meta.json                     (Modloader manifest)
-├── data/
-│   └── cosmicube/
-│       ├── [cube_id].json        (Cosmicube header)
-│       └── [cube_id]/
-│           └── [skin_id].json    (playerSkin item)
+your_mod.zip/
+├── meta.json                     (Modloader registration)
+├── data/cosmicube/
+│   ├── [cube_id].json            (Title & currency header)
+│   └── [cube_id]/
+│       └── [skin_id].json        (Item node connected to root)
 ├── characters/
-│   └── [skin_id].json            (Codename character config)
+│   └── [skin_id].json            (Codename & Psych unified config)
 ├── images/ & shared/images/
-│   ├── characters/[skin_id].png  (Spritesheet)
-│   ├── characters/[skin_id].xml  (Sparrow texture atlas)
-│   ├── icons/icon-[skin_id].png  (3-state icon strip)
-│   └── cosmicube/[cube_id].png   (Shop banner)</pre>
+│   ├── characters/[skin_id].png  (Full unclipped spritesheet)
+│   ├── characters/[skin_id].xml  (Padded Sparrow XML atlas)
+│   ├── icons/icon-[skin_id].png  (2-state / 3-state health strip)
+│   └── menu/cosmicube/
+│       ├── slides/[cube_id].png  (Carousel shop banner)
+│       └── items/[skin_id].png   (Node tree character portrait)</pre>
       </div>
     </div>
 
