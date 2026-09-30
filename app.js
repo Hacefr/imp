@@ -337,26 +337,22 @@ async function generateCosmicubeBanner(title, bodyColor) {
   bCanvas.height = 160;
   const bCtx = bCanvas.getContext('2d');
 
-  // Background
   const grad = bCtx.createLinearGradient(0, 0, 400, 160);
   grad.addColorStop(0, '#100e23');
   grad.addColorStop(1, '#2c1445');
   bCtx.fillStyle = grad;
   bCtx.fillRect(0, 0, 400, 160);
 
-  // Border
   bCtx.strokeStyle = '#a855f7';
   bCtx.lineWidth = 6;
   bCtx.strokeRect(3, 3, 394, 154);
 
-  // Mini Impostor Silhouette
   bCtx.save();
   bCtx.translate(330, 85);
   bCtx.scale(0.45, 0.45);
   renderProceduralImpostor(bCtx, bodyColor, 'idle');
   bCtx.restore();
 
-  // Banner Text
   bCtx.fillStyle = '#ffffff';
   bCtx.font = '900 22px "Montserrat", sans-serif';
   bCtx.fillText(title.toUpperCase(), 24, 75);
@@ -373,7 +369,6 @@ async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
   const skinId = rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  const version = document.getElementById('engineVersion').value;
   const cubeTitle = document.getElementById('cubeTitle').value || 'Legacy Crewmate Cube';
   const cubeId = cubeTitle.toLowerCase().replace(/[^a-z0-9_]/g, '_');
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
@@ -397,31 +392,38 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. Boyfriend Character Config JSON
-  const charConfigString = JSON.stringify({
-    animations: [
-      { anim: "idle", name: "idle", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singLEFT", name: "singLEFT", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singDOWN", name: "singDOWN", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singUP", name: "singUP", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singRIGHT", name: "singRIGHT", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singLEFTmiss", name: "singLEFTmiss", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singDOWNmiss", name: "singDOWNmiss", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singUPmiss", name: "singUPmiss", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "singRIGHTmiss", name: "singRIGHTmiss", fps: 24, loop: false, offsets: [0, 0] },
-      { anim: "peace", name: "peace", fps: 24, loop: false, offsets: [0, 0] }
-    ],
-    image: `characters/${skinId}`,
+  // B. EXACT CODENAME / NIGHTMAREVISION CHARACTER SCHEMA (matches bfweird.json)
+  const codenameCharData = {
+    renderType: "sparrow", // Tells engine to read PNG + XML
+    version: "1.0.1",
+    name: skinId,
+    assetPath: `characters/${skinId}`,
     scale: scale,
-    sing_duration: 4,
-    healthicon: skinId,
-    position: [0, 0],
-    camera_position: [state.camAnchor.x, state.camAnchor.y],
-    hat_position: [state.hatAnchor.x, state.hatAnchor.y],
-    flip_x: true,
-    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
-    healthbar_colors: [255, 43, 61]
-  }, null, 2);
+    offsets: [0, 0],
+    cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
+    danceEvery: 2,
+    singTime: 6,
+    flipX: true,
+    isPixel: document.getElementById('antialiasSelect').value === 'false',
+    startingAnimation: "idle",
+    healthIcon: {
+      id: skinId,
+      isPixel: false
+    },
+    animations: [
+      { name: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singLEFTmiss", prefix: "singLEFTmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singDOWNmiss", prefix: "singDOWNmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singUPmiss", prefix: "singUPmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "singRIGHTmiss", prefix: "singRIGHTmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
+      { name: "peace", prefix: "peace", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] }
+    ]
+  };
+  const charConfigString = JSON.stringify(codenameCharData, null, 2);
 
   // C. Spritesheet Image Data
   let spriteBlob;
@@ -474,54 +476,50 @@ async function bundleModZip() {
   const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
 
   // -------------------------------------------------------------
-  // HYBRID INJECTION (Guarantees discovery by engine & mod loaders)
+  // COMPLETE MULTI-DIRECTORY INJECTION
   // -------------------------------------------------------------
 
-  // 1. Root Level Files
-  zip.file("meta.json", metaString);
-  zip.file("_polymod_meta.json", metaString);
-  zip.file("icon.png", iconBlob);
+  const injectAll = (target) => {
+    target.file("meta.json", metaString);
+    target.file("_polymod_meta.json", metaString);
+    target.file("icon.png", iconBlob);
 
-  // 2. Mod Folder Level Files
-  const modFolder = zip.folder(skinId);
-  modFolder.file("meta.json", metaString);
-  modFolder.file("_polymod_meta.json", metaString);
-  modFolder.file("icon.png", iconBlob);
+    // Characters JSON
+    target.folder("characters").file(`${skinId}.json`, charConfigString);
+    target.folder("data").folder("characters").file(`${skinId}.json`, charConfigString);
 
-  // CHARACTER CONFIG (.json) in characters/
-  zip.folder("characters").file(`${skinId}.json`, charConfigString);
-  modFolder.folder("characters").file(`${skinId}.json`, charConfigString);
+    // Spritesheet PNG & XML in images/characters/ AND shared/images/characters/
+    target.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
+    target.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
+    target.folder("shared").folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
+    target.folder("shared").folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
 
-  // CRITICAL FIX: SPRITESHEET (.png & .xml) in images/characters/ (where NightmareVision looks!)
-  zip.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
-  zip.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
-  modFolder.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
-  modFolder.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
+    // Also in characters/ root
+    target.folder("characters").file(`${skinId}.png`, spriteBlob);
+    target.folder("characters").file(`${skinId}.xml`, xmlString);
 
-  // Also keep a copy in characters/ for backwards compatibility
-  zip.folder("characters").file(`${skinId}.png`, spriteBlob);
-  zip.folder("characters").file(`${skinId}.xml`, xmlString);
-  modFolder.folder("characters").file(`${skinId}.png`, spriteBlob);
-  modFolder.folder("characters").file(`${skinId}.xml`, xmlString);
+    // Icons
+    target.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
+    target.folder("shared").folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-  // HEALTH ICONS in images/icons/
-  zip.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
-  modFolder.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
+    // Cosmicube Data (data/cosmicube/)
+    target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
+    target.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
 
-  // COSMICUBE DATA in data/cosmicube/
-  zip.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
-  modFolder.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
+    // Cosmicube Banner
+    target.folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
+    target.folder("shared").folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
+    target.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
+    target.folder("shared").folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
+  };
 
-  zip.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
-  modFolder.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
+  // 1. Inject at flat root
+  injectAll(zip);
 
-  // COSMICUBE BANNER (Mirrored in images/cosmicubes/ and images/cosmicube/)
-  zip.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
-  modFolder.folder("images").folder("cosmicubes").file(`${cubeId}.png`, bannerBlob);
-  zip.folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
-  modFolder.folder("images").folder("cosmicube").file(`${cubeId}.png`, bannerBlob);
+  // 2. Inject inside mod subfolder
+  injectAll(zip.folder(skinId));
 
-  // Download Bundle
+  // Download
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
