@@ -1,22 +1,31 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
  * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
- * Includes complete .imp Project Save/Load Engine.
+ * Includes complete .imp Project Save/Load Engine, Animated Templates, and Stage Simulators.
  */
 
 // 1. GLOBAL STATE
 const state = {
+  mode: 'upload', // 'upload', 'animated_template', 'static_template', 'loose_pngs'
   rawSpriteFile: null,
   spriteImage: null,
   cols: 5,
   rows: 1,
   activePose: 'idle',
+  idleFrameTick: 0,
   customBannerImage: null,
   customNodeRenderImage: null,
   icons: {
     normal: null,
     lose: null,
     win: null
+  },
+  looseFrames: {
+    idle: null,
+    left: null,
+    down: null,
+    up: null,
+    right: null
   },
   hatAnchor: { x: 0, y: -90 },
   camAnchor: { x: 100, y: -100 }
@@ -80,7 +89,88 @@ function switchTab(tabId) {
   document.getElementById('subTitle').innerText = titles[tabId];
 }
 
-// 4. LABELED SPRITESHEET SLICER VIEWER
+// 4. ANIMATED SPRITESHEET GENERATOR (Template: 14 Frames)
+async function generateAnimatedTemplateImage(bodyColor) {
+  const sheet = document.createElement('canvas');
+  const fw = 300, fh = 260;
+  sheet.width = fw * 7;
+  sheet.height = fh * 2;
+  const sCtx = sheet.getContext('2d');
+
+  // Frame 0-3: Idle (Breathing Bop)
+  const idleBops = [0, -6, -12, -4];
+  idleBops.forEach((offsetY, i) => {
+    sCtx.save();
+    sCtx.translate(i * fw + fw / 2, fh * 0.88 + offsetY);
+    renderProceduralImpostor(sCtx, bodyColor, 'idle', i * 0.05);
+    sCtx.restore();
+  });
+
+  // Frame 4-5: Left Pose (Strike + Hold)
+  [0, 1].forEach((sub, i) => {
+    sCtx.save();
+    sCtx.translate((4 + i) * fw + fw / 2, fh * 0.88);
+    renderProceduralImpostor(sCtx, bodyColor, 'singLEFT', sub * 0.04);
+    sCtx.restore();
+  });
+
+  // Frame 6: Down Pose 1
+  sCtx.save();
+  sCtx.translate(6 * fw + fw / 2, fh * 0.88);
+  renderProceduralImpostor(sCtx, bodyColor, 'singDOWN', 0);
+  sCtx.restore();
+
+  // Row 2: Down Pose 2, Up Pose (2), Right Pose (2), Hey (2)
+  const row2Poses = ['singDOWN', 'singUP', 'singUP', 'singRIGHT', 'singRIGHT', 'hey', 'hey'];
+  row2Poses.forEach((pose, i) => {
+    sCtx.save();
+    sCtx.translate(i * fw + fw / 2, fh + fh * 0.88);
+    renderProceduralImpostor(sCtx, bodyColor, pose, (i % 2) * 0.05);
+    sCtx.restore();
+  });
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = sheet.toDataURL('image/png');
+  });
+}
+
+// 5. SLICER & STAGE PIPELINE
+function switchSlicerMode(mode) {
+  state.mode = mode;
+  document.getElementById('customUploadSection').style.display = (mode === 'upload') ? 'block' : 'none';
+  document.getElementById('loosePngsSection').style.display = (mode === 'loose_pngs') ? 'block' : 'none';
+
+  if (mode === 'animated_template') {
+    state.cols = 7;
+    state.rows = 2;
+    document.getElementById('gridCols').value = 7;
+    document.getElementById('gridRows').value = 2;
+    generateAnimatedTemplateImage(document.getElementById('healthColor').value).then(img => {
+      state.spriteImage = img;
+      updateSlicerMap();
+      autoCalibrateScale();
+      drawCharacter();
+    });
+  } else if (mode === 'static_template') {
+    state.cols = 5;
+    state.rows = 1;
+    document.getElementById('gridCols').value = 5;
+    document.getElementById('gridRows').value = 1;
+    state.spriteImage = null; // Uses default fallback
+    updateSlicerMap();
+    autoCalibrateScale();
+    drawCharacter();
+  } else if (mode === 'upload') {
+    state.cols = parseInt(document.getElementById('gridCols').value) || 5;
+    state.rows = parseInt(document.getElementById('gridRows').value) || 1;
+    updateSlicerMap();
+    drawCharacter();
+  }
+}
+
+// 6. LABELED SPRITESHEET SLICER VIEWER
 const slicerCanvas = document.getElementById('slicerCanvas');
 const slCtx = slicerCanvas.getContext('2d');
 
@@ -143,32 +233,80 @@ function updateSlicerMap() {
   updateNodeRenderIconPreview();
 }
 
-// 5. STAGE FLOOR & SCALE SIMULATOR
+// 7. STAGE SIMULATOR (WITH BACKGROUNDS & SMOOTH 24FPS BOB)
 const charCanvas = document.getElementById('charCanvas');
 const ctx = charCanvas.getContext('2d');
 
+function drawStageBackground(c, type) {
+  const w = charCanvas.width;
+  const h = charCanvas.height;
+  const groundY = h * 0.78;
+
+  if (type === 'mira') {
+    // Mira HQ Greenhouse
+    const skyGrad = c.createLinearGradient(0, 0, 0, groundY);
+    skyGrad.addColorStop(0, '#7dd3fc');
+    skyGrad.addColorStop(1, '#e0f2fe');
+    c.fillStyle = skyGrad;
+    c.fillRect(0, 0, w, groundY);
+
+    // Glass flower tube
+    c.fillStyle = 'rgba(255,255,255,0.4)';
+    c.fillRect(w * 0.35, 30, w * 0.3, groundY - 30);
+    c.strokeStyle = '#0284c7';
+    c.lineWidth = 3;
+    c.strokeRect(w * 0.35, 30, w * 0.3, groundY - 30);
+
+    // Floor Carpet
+    c.fillStyle = '#16a34a';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else if (type === 'polus') {
+    // Polus Snowy Night
+    c.fillStyle = '#0f172a';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#e2e8f0';
+    c.fillRect(0, groundY, w, h - groundY); // Snow ground
+  } else if (type === 'airship') {
+    // Airship Meeting Room
+    c.fillStyle = '#991b1b';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#374151';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else if (type === 'defeat') {
+    // Defeat Mode
+    c.fillStyle = '#000000';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#b91c1c';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else {
+    // Clean Minimal Grid
+    c.fillStyle = 'rgba(0,0,0,0.5)';
+    c.fillRect(0, 0, w, h);
+  }
+
+  // Carpet Ground Line
+  c.strokeStyle = '#22c55e';
+  c.lineWidth = 3;
+  c.setLineDash([8, 6]);
+  c.beginPath();
+  c.moveTo(0, groundY);
+  c.lineTo(w, groundY);
+  c.stroke();
+  c.setLineDash([]);
+}
+
 function drawCharacter() {
   ctx.clearRect(0, 0, charCanvas.width, charCanvas.height);
+
+  const bgType = document.getElementById('stageBgSelect') ? document.getElementById('stageBgSelect').value : 'mira';
+  drawStageBackground(ctx, bgType);
 
   const antialias = document.getElementById('antialiasSelect').value === 'true';
   ctx.imageSmoothingEnabled = antialias;
 
   const scale = parseFloat(document.getElementById('charScale').value) || 1.75;
   const color = document.getElementById('healthColor').value;
-
   const groundY = charCanvas.height * 0.78;
-  ctx.save();
-  ctx.strokeStyle = '#22c55e';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([8, 6]);
-  ctx.beginPath();
-  ctx.moveTo(10, groundY);
-  ctx.lineTo(charCanvas.width - 10, groundY);
-  ctx.stroke();
-
-  ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
-  ctx.fillRect(10, groundY, charCanvas.width - 20, charCanvas.height - groundY - 10);
-  ctx.restore();
 
   ctx.save();
   ctx.translate(charCanvas.width / 2, groundY);
@@ -178,8 +316,23 @@ function drawCharacter() {
     const frameW = state.spriteImage.width / state.cols;
     const frameH = state.spriteImage.height / state.rows;
     
-    const poseIndexMap = { idle: 0, singLEFT: 1, singDOWN: 2, singUP: 3, singRIGHT: 4, hey: 0 };
-    const frameIndex = poseIndexMap[state.activePose] || 0;
+    // Support multi-frame looping for animated template
+    let frameIndex = 0;
+    if (state.mode === 'animated_template') {
+      const animatedMap = {
+        idle: [0, 1, 2, 3],
+        singLEFT: [4, 5],
+        singDOWN: [6, 7],
+        singUP: [8, 9],
+        singRIGHT: [10, 11],
+        hey: [12, 13]
+      };
+      const activeFrames = animatedMap[state.activePose] || [0];
+      frameIndex = activeFrames[state.idleFrameTick % activeFrames.length];
+    } else {
+      const poseIndexMap = { idle: 0, singLEFT: 1, singDOWN: 2, singUP: 3, singRIGHT: 4, hey: 0 };
+      frameIndex = poseIndexMap[state.activePose] || 0;
+    }
     
     const col = frameIndex % state.cols;
     const row = Math.floor(frameIndex / state.cols) % state.rows;
@@ -194,45 +347,65 @@ function drawCharacter() {
   ctx.restore();
 }
 
-function renderProceduralImpostor(c, bodyColor, pose) {
+// Full Procedural Impostor with animation tick support
+function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   let offsetX = 0, offsetY = 0, rot = 0;
   if (pose === 'singLEFT')  { offsetX = -25; rot = -0.08; }
   if (pose === 'singDOWN')  { offsetY = 20; }
   if (pose === 'singUP')    { offsetY = -20; }
   if (pose === 'singRIGHT') { offsetX = 25; rot = 0.08; }
+  if (pose === 'hey')       { offsetY = -25; rot = 0.05; }
 
   c.save();
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
+  // Backpack on Right (+X)
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
   c.lineWidth = 8;
   c.beginPath();
-  c.roundRect(55, -150, 35, 120, 16);
+  c.roundRect(55, -150 - squish * 10, 35, 120 + squish * 10, 16);
   c.fill();
   c.stroke();
 
+  // Main Body
   c.beginPath();
-  c.roundRect(-70, -200, 140, 200, [70, 70, 25, 25]);
+  c.roundRect(-70, -200 - squish * 10, 140, 200 + squish * 10, [70, 70, 25, 25]);
   c.fill();
   c.stroke();
 
+  // Visor on Left (-X) -> Faces Left toward Opponent & GF!
   c.fillStyle = '#7feaff';
   c.beginPath();
-  c.roundRect(-60, -165, 80, 48, 24);
+  c.roundRect(-60, -165 - squish * 10, 80, 48, 24);
   c.fill();
   c.stroke();
 
+  // Visor Highlight
   c.fillStyle = '#ffffff';
   c.beginPath();
-  c.roundRect(-45, -158, 50, 14, 7);
+  c.roundRect(-45, -158 - squish * 10, 50, 14, 7);
   c.fill();
 
   c.restore();
 }
 
-// 6. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
+// 24 FPS Idle Bobbing Animation Loop
+let lastTime = 0;
+function stageAnimationLoop(time) {
+  if (time - lastTime > 120) { // ~8-10 FPS frame pacing for retro FNF bobbing
+    state.idleFrameTick++;
+    lastTime = time;
+    if (state.mode === 'animated_template') {
+      drawCharacter();
+    }
+  }
+  requestAnimationFrame(stageAnimationLoop);
+}
+requestAnimationFrame(stageAnimationLoop);
+
+// 8. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
 function autoCalibrateScale() {
   let currentHeight = 240;
   if (state.spriteImage) {
@@ -243,7 +416,7 @@ function autoCalibrateScale() {
   drawCharacter();
 }
 
-// 7. FILE UPLOAD HANDLERS
+// 9. FILE UPLOAD HANDLERS
 function handleSpriteUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -268,6 +441,123 @@ function updateGridSlices() {
   state.rows = parseInt(document.getElementById('gridRows').value) || 1;
   updateSlicerMap();
   drawCharacter();
+}
+
+// 10. "IMAGE TO SPRITES" (Loose PNGs Auto-Packer)
+async function handleLooseFrame(pose, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      state.looseFrames[pose] = img;
+      stitchLooseFramesIntoSprite();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function stitchLooseFramesIntoSprite() {
+  const poses = ['idle', 'left', 'down', 'up', 'right'];
+  const loaded = poses.map(p => state.looseFrames[p]).filter(Boolean);
+  if (loaded.length === 0) return;
+
+  const maxW = Math.max(...loaded.map(img => img.width));
+  const maxH = Math.max(...loaded.map(img => img.height));
+
+  const sheetCanvas = document.createElement('canvas');
+  sheetCanvas.width = maxW * 5;
+  sheetCanvas.height = maxH;
+  const sCtx = sheetCanvas.getContext('2d');
+
+  poses.forEach((p, i) => {
+    const img = state.looseFrames[p] || state.looseFrames['idle'];
+    if (img) {
+      sCtx.drawImage(img, i * maxW + (maxW - img.width) / 2, maxH - img.height);
+    }
+  });
+
+  const finalImg = new Image();
+  finalImg.onload = () => {
+    state.spriteImage = finalImg;
+    state.cols = 5;
+    state.rows = 1;
+    document.getElementById('gridCols').value = 5;
+    document.getElementById('gridRows').value = 1;
+    updateSlicerMap();
+    autoCalibrateScale();
+    drawCharacter();
+  };
+  finalImg.src = sheetCanvas.toDataURL('image/png');
+}
+
+// 11. 1-CLICK 3-STATE HEALTH ICON AUTO-GENERATOR
+async function autoGenerateIconsFromIdle() {
+  const baseCanvas = document.createElement('canvas');
+  baseCanvas.width = 150;
+  baseCanvas.height = 150;
+  const bCtx = baseCanvas.getContext('2d');
+
+  if (state.spriteImage) {
+    const fw = Math.floor(state.spriteImage.width / state.cols);
+    const fh = Math.floor(state.spriteImage.height / state.rows);
+    bCtx.drawImage(state.spriteImage, 0, 0, fw, fh, 10, 10, 130, 130);
+  } else {
+    bCtx.save();
+    bCtx.translate(75, 120);
+    bCtx.scale(0.55, 0.55);
+    renderProceduralImpostor(bCtx, document.getElementById('healthColor').value, 'idle');
+    bCtx.restore();
+  }
+
+  // 1. Normal
+  const imgNormal = new Image();
+  imgNormal.src = baseCanvas.toDataURL('image/png');
+  state.icons.normal = imgNormal;
+  document.getElementById('iconNormalStatus').innerText = 'Auto-Generated';
+
+  // 2. Lose (Red with jagged crack lines)
+  const loseCanvas = document.createElement('canvas');
+  loseCanvas.width = 150;
+  loseCanvas.height = 150;
+  const lCtx = loseCanvas.getContext('2d');
+  lCtx.drawImage(baseCanvas, 0, 0);
+  lCtx.fillStyle = 'rgba(255, 51, 68, 0.35)';
+  lCtx.fillRect(0, 0, 150, 150);
+  lCtx.strokeStyle = '#000000';
+  lCtx.lineWidth = 5;
+  lCtx.beginPath();
+  lCtx.moveTo(40, 20); lCtx.lineTo(75, 80); lCtx.lineTo(60, 130);
+  lCtx.moveTo(110, 30); lCtx.lineTo(80, 80); lCtx.lineTo(105, 120);
+  lCtx.stroke();
+
+  const imgLose = new Image();
+  imgLose.src = loseCanvas.toDataURL('image/png');
+  state.icons.lose = imgLose;
+  document.getElementById('iconLoseStatus').innerText = 'Auto-Generated';
+
+  // 3. Win (Gold glow with sparkles)
+  const winCanvas = document.createElement('canvas');
+  winCanvas.width = 150;
+  winCanvas.height = 150;
+  const wCtx = winCanvas.getContext('2d');
+  wCtx.drawImage(baseCanvas, 0, 0);
+  wCtx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+  wCtx.fillRect(0, 0, 150, 150);
+  wCtx.fillStyle = '#ffffff';
+  wCtx.font = 'bold 24px sans-serif';
+  wCtx.fillText('★', 18, 40);
+  wCtx.fillText('★', 115, 55);
+
+  const imgWin = new Image();
+  imgWin.src = winCanvas.toDataURL('image/png');
+  state.icons.win = imgWin;
+  document.getElementById('iconWinStatus').innerText = 'Auto-Generated';
+
+  alert("Generated 3-State Icons: Normal, Lose (Cracked), and Win (Sparkling)!");
 }
 
 function handleIconUpload(slot, e) {
@@ -340,7 +630,7 @@ function updateNodeRenderIconPreview() {
   }
 }
 
-// 8. KEYBOARD LISTENER
+// 12. KEYBOARD LISTENER
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   let newPose = null;
@@ -364,7 +654,7 @@ window.addEventListener('keyup', () => {
   drawCharacter();
 });
 
-// 9. DRAGGABLE ANCHORS
+// 13. DRAGGABLE ANCHORS
 function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
   const el = document.getElementById(elementId);
   const container = document.getElementById('stageCanvasContainer');
@@ -398,7 +688,7 @@ document.getElementById('hatMarker').style.top = '22%';
 document.getElementById('camMarker').style.left = '58%';
 document.getElementById('camMarker').style.top = '45%';
 
-// 10. COSMICUBE SHOP & SYNC
+// 14. COSMICUBE SHOP & SYNC
 function syncSkinDisplayName() {
   const name = document.getElementById('skinDisplayName').value || 'Star Impostor';
   document.getElementById('nodeNameInput').value = name;
@@ -425,7 +715,7 @@ function toggleCurrency(mode) {
   document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
 }
 
-// 11. AUTOMATED 450x150 ICON STITCHER
+// 15. AUTOMATED 450x150 ICON STITCHER
 async function generateStitchedIconBlob() {
   const offCanvas = document.createElement('canvas');
   offCanvas.width = 450;
@@ -464,26 +754,7 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 12. AUTO-BAKED FALLBACK SPRITESHEET (400x400 cells)
-async function generateFallbackSpritesheet(bodyColor) {
-  const sheet = document.createElement('canvas');
-  const frameW = 400, frameH = 400;
-  sheet.width = frameW * 5;
-  sheet.height = frameH * 1;
-  const sCtx = sheet.getContext('2d');
-
-  const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
-  poses.forEach((pose, i) => {
-    sCtx.save();
-    sCtx.translate(i * frameW + frameW / 2, frameH * 0.88);
-    renderProceduralImpostor(sCtx, bodyColor, pose);
-    sCtx.restore();
-  });
-
-  return new Promise(resolve => sheet.toBlob(resolve, 'image/png'));
-}
-
-// 13. AUTO-RESIZED CAROUSEL SLIDE BANNER (Guaranteed 380x210 card fit!)
+// 16. AUTO-RESIZED CAROUSEL SLIDE BANNER (Guaranteed 380x210 card fit!)
 async function generateCosmicubeBanner(title, bodyColor) {
   const bCanvas = document.createElement('canvas');
   bCanvas.width = 380;
@@ -529,7 +800,7 @@ async function generateCosmicubeBanner(title, bodyColor) {
   return new Promise(resolve => bCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 14. COSMICUBE NODE ITEM RENDER (images/menu/cosmicube/items/[skinId].png)
+// 17. COSMICUBE NODE ITEM RENDER
 async function generateNodeRenderItemBlob() {
   const rCanvas = document.createElement('canvas');
   rCanvas.width = 180;
@@ -553,7 +824,7 @@ async function generateNodeRenderItemBlob() {
   return new Promise(resolve => rCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 15. CUSTOM CURRENCY ICON GENERATOR
+// 18. CUSTOM CURRENCY ICON GENERATOR
 async function generateCurrencyIconBlob() {
   const cCanvas = document.createElement('canvas');
   cCanvas.width = 64;
@@ -575,10 +846,7 @@ async function generateCurrencyIconBlob() {
   return new Promise(resolve => cCanvas.toBlob(resolve, 'image/png'));
 }
 
-// =========================================================================
-// 16. THE .IMP PROJECT SAVE / LOAD ENGINE
-// =========================================================================
-
+// 19. .IMP PROJECT SAVE / LOAD ENGINE
 function imageToBase64(img) {
   if (!img) return null;
   const c = document.createElement('canvas');
@@ -598,15 +866,15 @@ function base64ToImage(b64) {
   });
 }
 
-// SAVE .IMP PROJECT FILE
 async function saveImpProject() {
   const skinId = document.getElementById('skinId').value || 'custom_bf';
 
   const projectData = {
     format: "VS_IMPOSTOR_STUDIO_PROJECT",
-    version: "1.0",
+    version: "1.1",
     savedAt: new Date().toISOString(),
     config: {
+      mode: state.mode,
       skinId: document.getElementById('skinId').value,
       skinDisplayName: document.getElementById('skinDisplayName').value,
       charScale: document.getElementById('charScale').value,
@@ -640,7 +908,6 @@ async function saveImpProject() {
   a.click();
 }
 
-// LOAD .IMP PROJECT FILE
 async function loadImpProject(e) {
   const file = e.target.files ? e.target.files[0] : e;
   if (!file) return;
@@ -668,16 +935,19 @@ async function loadImpProject(e) {
       document.getElementById('cubeTitle').value = cfg.cubeTitle || 'Custom Cube';
       document.getElementById('nodeCostInput').value = cfg.nodeCostInput || 150;
 
+      state.mode = cfg.mode || 'upload';
+      if (document.getElementById('slicerModeSelect')) {
+        document.getElementById('slicerModeSelect').value = state.mode;
+      }
+
       state.cols = parseInt(cfg.gridCols) || 5;
       state.rows = parseInt(cfg.gridRows) || 1;
       state.hatAnchor = cfg.hatAnchor || { x: 0, y: -90 };
       state.camAnchor = cfg.camAnchor || { x: 100, y: -100 };
 
-      // Restore Anchors Coordinates Display
       document.getElementById('hatCoords').innerText = `${state.hatAnchor.x}, ${state.hatAnchor.y}`;
       document.getElementById('camCoords').innerText = `${state.camAnchor.x}, ${state.camAnchor.y}`;
 
-      // Restore Images from Base64
       if (data.images) {
         state.spriteImage = await base64ToImage(data.images.spriteImage);
         state.customBannerImage = await base64ToImage(data.images.customBannerImage);
@@ -703,7 +973,6 @@ async function loadImpProject(e) {
   reader.readAsText(file);
 }
 
-// Window Drag-and-Drop listener for .imp project files
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => {
   e.preventDefault();
@@ -713,9 +982,7 @@ window.addEventListener('drop', (e) => {
   }
 });
 
-// =========================================================================
-// 17. FULL MULTI-DIRECTORY BUNDLER (.ZIP)
-// =========================================================================
+// 20. MULTI-DIRECTORY BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
@@ -777,7 +1044,20 @@ async function bundleModZip() {
     sing_duration: 6,
     healthbar_colors: [255, 221, 0],
 
-    animations: [
+    animations: (state.mode === 'animated_template') ? [
+      { name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, fps: 24, looped: true, loop: true, indices: [0, 1, 2, 3], frameIndices: [0, 1, 2, 3] },
+      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "hey", anim: "hey", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "peace", anim: "peace", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
+      { name: "taunt", anim: "taunt", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] }
+    ] : [
       { name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
@@ -794,35 +1074,68 @@ async function bundleModZip() {
   };
   const charConfigString = JSON.stringify(charConfigData, null, 2);
 
-  // C. Spritesheet Image Data
+  // C. Spritesheet Image Data & XML
   let spriteBlob;
   let frameW = 300, frameH = 240;
   let cols = state.cols, rows = state.rows;
 
-  if (state.rawSpriteFile) {
-    spriteBlob = state.rawSpriteFile;
+  if (state.spriteImage) {
     frameW = Math.floor(state.spriteImage.width / state.cols);
     frameH = Math.floor(state.spriteImage.height / state.rows);
+    const c = document.createElement('canvas');
+    c.width = state.spriteImage.width;
+    c.height = state.spriteImage.height;
+    c.getContext('2d').drawImage(state.spriteImage, 0, 0);
+    spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
   } else {
-    spriteBlob = await generateFallbackSpritesheet(bodyColor);
-    cols = 5;
-    rows = 1;
-    frameW = 400;
-    frameH = 400;
+    // Default 5-frame fallback
+    const c = document.createElement('canvas');
+    c.width = 1500; c.height = 260;
+    const sCtx = c.getContext('2d');
+    const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
+    poses.forEach((pose, i) => {
+      sCtx.save();
+      sCtx.translate(i * 300 + 150, 260 * 0.88);
+      renderProceduralImpostor(sCtx, bodyColor, pose);
+      sCtx.restore();
+    });
+    spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
+    cols = 5; rows = 1; frameW = 300; frameH = 260;
   }
 
   // D. Fully Padded Sparrow XML Atlas
   let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
-  const xmlPoseKeys = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
-
-  for (let i = 0; i < cols * rows; i++) {
-    const aName = xmlPoseKeys[i] || "idle";
-    const x = (i % cols) * frameW;
-    const y = Math.floor(i / cols) * frameH;
-    xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
-  }
-  if (cols * rows <= 5) {
-    xmlString += `  <SubTexture name="peace0000" x="0" y="0" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
+  if (state.mode === 'animated_template') {
+    // 14 Frames mapping: idle (4), singLEFT (2), singDOWN (2), singUP (2), singRIGHT (2), hey (2)
+    const animMap = [
+      { name: "idle", count: 4 },
+      { name: "singLEFT", count: 2 },
+      { name: "singDOWN", count: 2 },
+      { name: "singUP", count: 2 },
+      { name: "singRIGHT", count: 2 },
+      { name: "hey", count: 2 }
+    ];
+    let frameIdx = 0;
+    animMap.forEach(anim => {
+      for (let i = 0; i < anim.count; i++) {
+        const x = (frameIdx % cols) * frameW;
+        const y = Math.floor(frameIdx / cols) * frameH;
+        xmlString += `  <SubTexture name="${anim.name}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
+        frameIdx++;
+      }
+    });
+  } else {
+    // 5-6 Frame Mapping
+    const xmlPoseKeys = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
+    for (let i = 0; i < cols * rows; i++) {
+      const aName = xmlPoseKeys[i] || "idle";
+      const x = (i % cols) * frameW;
+      const y = Math.floor(i / cols) * frameH;
+      xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
+    }
+    if (cols * rows <= 5) {
+      xmlString += `  <SubTexture name="peace0000" x="0" y="0" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
+    }
   }
   xmlString += `</TextureAtlas>`;
 
@@ -844,7 +1157,7 @@ async function bundleModZip() {
     }
   }, null, 2);
 
-  // F. Generate All Graphics
+  // F. Graphics Blobs
   const iconBlob = await generateStitchedIconBlob();
   const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
   const nodeRenderBlob = await generateNodeRenderItemBlob();
@@ -856,33 +1169,26 @@ async function bundleModZip() {
     target.file("_polymod_meta.json", metaString);
     target.file("icon.png", iconBlob);
 
-    // Characters JSON
     target.folder("characters").file(`${skinId}.json`, charConfigString);
     target.folder("data").folder("characters").file(`${skinId}.json`, charConfigString);
 
-    // Spritesheet PNG & XML
     target.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
     target.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
     target.folder("shared").folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
     target.folder("shared").folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
 
-    // Health Icons
     target.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
     target.folder("shared").folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
 
-    // Cosmicube Header & Item Node
     target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
     target.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
 
-    // Carousel Shop Slide Banner (images/menu/cosmicube/slides/)
     target.folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
     target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
 
-    // Node Tree Item Portrait Render (images/menu/cosmicube/items/)
     target.folder("images").folder("menu").folder("cosmicube").folder("items").file(`${skinId}.png`, nodeRenderBlob);
     target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("items").file(`${skinId}.png`, nodeRenderBlob);
 
-    // Custom Currency (if custom)
     if (isCustomCurrency) {
       target.folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
       target.folder("shared").folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
