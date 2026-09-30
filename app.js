@@ -1,6 +1,6 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Verified format matching official VS Impostor Legacy & Security DLC specs.
+ * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
  */
 
 // 1. GLOBAL STATE
@@ -87,12 +87,10 @@ function drawCharacter() {
 
   const scale = parseFloat(document.getElementById('charScale').value) || 1.0;
   const color = document.getElementById('healthColor').value;
-  const isFlippedInStudio = document.getElementById('flipXSelect').value === 'true';
 
   ctx.save();
   ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
-  // In studio preview, face left toward the stage center
-  ctx.scale(isFlippedInStudio ? -scale : scale, scale);
+  ctx.scale(scale, scale);
 
   if (state.spriteImage) {
     const frameW = state.spriteImage.width / state.cols;
@@ -114,44 +112,45 @@ function drawCharacter() {
   ctx.restore();
 }
 
-// Standard FNF Character Template: Drawn facing Right (engine flips to face Left on player side)
+// Procedural Impostor drawn facing LEFT with safe margin padding (no cut corners!)
 function renderProceduralImpostor(c, bodyColor, pose) {
   let offsetX = 0, offsetY = 0, rot = 0;
-  if (pose === 'singLEFT')  { offsetX = -20; rot = -0.1; }
-  if (pose === 'singDOWN')  { offsetY = 15; }
-  if (pose === 'singUP')    { offsetY = -15; }
-  if (pose === 'singRIGHT') { offsetX = 20; rot = 0.1; }
+  if (pose === 'singLEFT')  { offsetX = -15; rot = -0.08; }
+  if (pose === 'singDOWN')  { offsetY = 12; }
+  if (pose === 'singUP')    { offsetY = -12; }
+  if (pose === 'singRIGHT') { offsetX = 15; rot = 0.08; }
 
   c.save();
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
-  // Backpack on Left (-X)
+  // Scaled comfortably inside 250x250 frame so corners are never clipped
+  // Backpack on Right (+X)
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
-  c.lineWidth = 7;
+  c.lineWidth = 6;
   c.beginPath();
-  c.roundRect(-85, -40, 30, 95, 12);
+  c.roundRect(42, -35, 24, 75, 10);
   c.fill();
   c.stroke();
 
   // Body
   c.beginPath();
-  c.roundRect(-65, -90, 130, 180, [65, 65, 25, 25]);
+  c.roundRect(-50, -70, 100, 140, [50, 50, 20, 20]);
   c.fill();
   c.stroke();
 
-  // Visor on Right (+X)
+  // Visor on Left (-X) -> Faces Left toward Opponent & GF!
   c.fillStyle = '#7feaff';
   c.beginPath();
-  c.roundRect(-25, -55, 75, 42, 22);
+  c.roundRect(-42, -45, 60, 34, 18);
   c.fill();
   c.stroke();
 
-  // Visor Shine
+  // Visor Highlight
   c.fillStyle = '#ffffff';
   c.beginPath();
-  c.roundRect(-10, -50, 45, 12, 6);
+  c.roundRect(-30, -40, 36, 10, 5);
   c.fill();
 
   c.restore();
@@ -312,10 +311,10 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 10. AUTO-BAKED FALLBACK SPRITESHEET
+// 10. AUTO-BAKED FALLBACK SPRITESHEET (250x250 cells with built-in border padding)
 async function generateFallbackSpritesheet(bodyColor) {
   const sheet = document.createElement('canvas');
-  const frameW = 200, frameH = 200;
+  const frameW = 250, frameH = 250;
   sheet.width = frameW * 4;
   sheet.height = frameH * 2;
   const sCtx = sheet.getContext('2d');
@@ -379,10 +378,8 @@ async function bundleModZip() {
   const cost = parseInt(document.getElementById('nodeCostInput').value) || 100;
   const currencyType = document.getElementById('currencyMode').value === 'custom' ? 'modpods' : 'beans';
 
-  // Dynamic Offset and Flip from UI
   const offsetX = parseInt(document.getElementById('stageOffsetX').value) || 0;
-  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 350; // Positive 350 drops onto floor
-  const isFlipX = document.getElementById('flipXSelect').value === 'true'; // True = inverts to face opponent in-game
+  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 350;
 
   // A. Metadata
   const metaData = {
@@ -400,42 +397,55 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. EXACT CODENAME / NIGHTMAREVISION CHARACTER SCHEMA
-  const codenameCharData = {
+  // B. DUAL-ENGINE COMPATIBLE CHARACTER SCHEMA (Psych + Codename / NightmareVision)
+  const charConfigData = {
+    // Codename / NightmareVision keys
     renderType: "sparrow",
     version: "1.0.1",
     name: skinId,
     assetPath: `characters/${skinId}`,
-    scale: scale,
-    offsets: [offsetX, offsetY], // Uses positive Y to drop onto floor
-    cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
     danceEvery: 2,
     singTime: 6,
-    flipX: isFlipX, // Inverts horizontally so character faces the opponent
+    flipX: false, // Sprite is drawn facing Left, so flipX: false faces the opponent cleanly!
     isPixel: document.getElementById('antialiasSelect').value === 'false',
     startingAnimation: "idle",
     healthIcon: {
       id: skinId,
       isPixel: false
     },
+
+    // Psych Engine keys (matching idkbf.json)
+    image: `characters/${skinId}`,
+    flip_x: false,
+    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
+    position: [offsetX, offsetY],
+    offsets: [offsetX, offsetY],
+    camera_position: [state.camAnchor.x, state.camAnchor.y],
+    cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
+    hat_position: [state.hatAnchor.x, state.hatAnchor.y],
+    healthicon: skinId,
+    scale: scale,
+    sing_duration: 6,
+    healthbar_colors: [255, 43, 61],
+
     animations: [
-      { name: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singLEFTmiss", prefix: "singLEFTmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singDOWNmiss", prefix: "singDOWNmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singUPmiss", prefix: "singUPmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "singRIGHTmiss", prefix: "singRIGHTmiss", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] },
-      { name: "peace", prefix: "peace", offsets: [0, 0], frameRate: 24, looped: false, frameIndices: [] }
+      { name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFTmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWNmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUPmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHTmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] }
     ]
   };
-  const charConfigString = JSON.stringify(codenameCharData, null, 2);
+  const charConfigString = JSON.stringify(charConfigData, null, 2);
 
   // C. Spritesheet Image Data
   let spriteBlob;
-  let frameW = 200, frameH = 200;
+  let frameW = 250, frameH = 250;
   let cols = state.cols, rows = state.rows;
 
   if (state.rawSpriteFile) {
@@ -446,19 +456,20 @@ async function bundleModZip() {
     spriteBlob = await generateFallbackSpritesheet(bodyColor);
     cols = 4;
     rows = 2;
-    frameW = 200;
-    frameH = 200;
+    frameW = 250;
+    frameH = 250;
   }
 
-  // D. Clean Multi-Frame Sparrow XML Mapping
-  let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
+  // D. Full Padded Sparrow XML (Matches idkbf.xml specification!)
+  let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
   const poseNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace", "idle", "idle"];
 
   for (let i = 0; i < cols * rows; i++) {
     const aName = poseNames[i] || "idle";
     const x = (i % cols) * frameW;
     const y = Math.floor(i / cols) * frameH;
-    xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
+    // Includes frameX/Y and frameWidth/Height so corners are NEVER clipped!
+    xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
   }
   xmlString += `</TextureAtlas>`;
 
