@@ -154,6 +154,23 @@
           <input type="number" id="charScale" value="1.0" step="0.05" oninput="drawCharacter()" />
         </div>
         <div class="form-group">
+          <label>Facing Direction (In-Game Flip)</label>
+          <select id="flipXSelect" onchange="drawCharacter()">
+            <option value="true">Face Opponent (flipX: true - Standard)</option>
+            <option value="false">Face Away (flipX: false)</option>
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Stage Offset X</label>
+            <input type="number" id="stageOffsetX" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Stage Offset Y (Floor)</label>
+            <input type="number" id="stageOffsetY" value="350" />
+          </div>
+        </div>
+        <div class="form-group">
           <label>Antialiasing</label>
           <select id="antialiasSelect" onchange="drawCharacter()">
             <option value="true">Smooth Flash Vector (Antialiased)</option>
@@ -239,7 +256,7 @@
         <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
           • Enforces strict lowercase file names to prevent Steam Deck & Linux crashes.<br>
           • Injects save namespace to prevent corrupting player save files.<br>
-          • <code>flip_x: true</code> locked for Player slot.
+          • Injects character files into both <code>images/</code> and <code>shared/images/</code>.
         </p>
       </div>
 
@@ -247,16 +264,19 @@
         <div class="panel-header">Auto-Compiled Directory</div>
         <pre style="background: rgba(0,0,0,0.6); padding: 12px; border-radius: 8px; font-size: 0.74rem; color: var(--visor-cyan); font-family: monospace; line-height: 1.6;">
 your_skin.zip/
-├── _polus_manifest.json          (Engine registration)
+├── meta.json                     (Modloader manifest)
+├── data/
+│   └── cosmicube/
+│       ├── [cube_id].json        (Cosmicube header)
+│       └── [cube_id]/
+│           └── [skin_id].json    (playerSkin item)
 ├── characters/
-│   ├── [skin_id].json            (BF offsets, hat & cam anchors)
-│   ├── [skin_id].png             (Uploaded raw texture)
-│   └── [skin_id].xml             (Auto-generated Sparrow atlas)
-├── cosmicubes/
-│   └── [skin_id]_cube.json       (Shop nodes & unlock data)
-└── images/
-    └── icons/
-        └── icon-[skin_id].png    (Stitched 450x150 3-state icon)</pre>
+│   └── [skin_id].json            (Codename character config)
+├── images/ & shared/images/
+│   ├── characters/[skin_id].png  (Spritesheet)
+│   ├── characters/[skin_id].xml  (Sparrow texture atlas)
+│   ├── icons/icon-[skin_id].png  (3-state icon strip)
+│   └── cosmicube/[cube_id].png   (Shop banner)</pre>
       </div>
     </div>
 
