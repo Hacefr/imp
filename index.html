@@ -136,14 +136,28 @@
           </div>
         </div>
 
+        <!-- Custom Slicer Header & View Toggles -->
         <div class="slice-preview-header">
-          <span>Live Slicer Map</span>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <span>Live Slicer Map</span>
+            <button class="pill-btn mini active" id="btnFitSheet" onclick="setSlicerZoom('fit')">Fit All</button>
+            <button class="pill-btn mini" id="btn100Sheet" onclick="setSlicerZoom('100')">100%</button>
+          </div>
           <span id="frameDimTag">300 x 240 px</span>
         </div>
 
-        <!-- Scrollable Labeled Slicer Box -->
+        <!-- Custom Slicer Container with Neon Track (No Left Clipping!) -->
         <div class="slicer-container" id="slicerContainer">
           <canvas id="slicerCanvas"></canvas>
+        </div>
+
+        <!-- Custom Frame Scrubber Slider -->
+        <div class="frame-scrubber-bar">
+          <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-bottom:4px;">
+            <span>Frame Scrubber:</span>
+            <strong id="scrubberActiveTag" style="color:var(--visor-cyan);">[0: IDLE]</strong>
+          </div>
+          <input type="range" id="frameScrubber" min="0" max="4" value="0" step="1" oninput="scrubToFrame(this.value)" />
         </div>
 
         <div class="panel-header" style="margin-top: 16px;">
@@ -433,7 +447,7 @@ your_mod.zip/
 │       ├── [node1].json          (Branch item 1)
 │       └── [node2].json          (Branch item 2)
 ├── characters/
-│   ├── [char1].json              (Character 1 config)
+│   └── [char1].json              (Character 1 config)
 │   └── [char2].json              (Character 2 config)
 ├── images/ & shared/images/
 │   ├── characters/[char].png     (Full unclipped spritesheets)
