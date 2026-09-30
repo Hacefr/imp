@@ -156,6 +156,43 @@ header {
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+/* Character Roster Bar */
+.roster-bar {
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.roster-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.roster-tab {
+  background: #000;
+  border: 1px solid #444;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.roster-tab.active {
+  background: var(--impostor-red);
+  border-color: var(--impostor-red);
+  color: #fff;
+  box-shadow: 0 0 8px var(--red-glow);
+}
+
 /* Slicer Box */
 .slice-preview-header {
   display: flex;
@@ -259,33 +296,40 @@ header {
 }
 .anchor-marker svg { width: 12px; height: 12px; fill: currentColor; }
 
-/* Cosmicube */
-.cosmic-shop { flex: 1; display: flex; flex-direction: column; }
+/* Draggable Cosmicube Board */
+.cosmic-shop { flex: 1; display: flex; flex-direction: column; position: relative; }
 .cosmic-banner {
-  padding: 14px 20px;
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--card-border);
   background: rgba(0,0,0,0.4);
 }
-.nodes-container {
+
+.node-board-container {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 36px;
   position: relative;
+  background: #080a10;
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overflow: hidden;
+  user-select: none;
 }
-.nodes-container::before {
-  content: '';
+
+#nodeLinesSvg {
   position: absolute;
-  width: 55%;
-  height: 3px;
-  background: rgba(255,255,255,0.2);
-  z-index: 1;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
-.tree-node {
+
+.board-node {
+  position: absolute;
   width: 76px;
   height: 76px;
   background: #000;
@@ -295,15 +339,16 @@ header {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  position: relative;
+  cursor: grab;
   z-index: 2;
-  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.tree-node svg { width: 26px; height: 26px; fill: #fff; }
-.tree-node:hover { border-color: #fff; box-shadow: var(--white-glow); transform: scale(1.08); }
-.tree-node.selected { border-color: var(--impostor-red); box-shadow: var(--red-glow); }
-.tree-node .node-cost {
+.board-node:active { cursor: grabbing; }
+.board-node:hover { border-color: #fff; box-shadow: var(--white-glow); }
+.board-node.selected { border-color: var(--impostor-red); box-shadow: var(--red-glow); }
+
+.board-node .node-cost-tag {
   position: absolute;
   bottom: -10px;
   background: #000;
@@ -313,4 +358,5 @@ header {
   font-weight: 900;
   padding: 1px 6px;
   border-radius: 6px;
+  pointer-events: none;
 }
