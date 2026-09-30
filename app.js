@@ -15,7 +15,7 @@ const state = {
     lose: null,
     win: null
   },
-  hatAnchor: { x: 0, y: -45 },
+  hatAnchor: { x: 0, y: -90 },
   camAnchor: { x: 100, y: -100 }
 };
 
@@ -112,45 +112,45 @@ function drawCharacter() {
   ctx.restore();
 }
 
-// Procedural Impostor drawn facing LEFT with safe margin padding (no cut corners!)
+// Full-Sized Impostor (320px tall, matches Pink and standard BF in-game height)
 function renderProceduralImpostor(c, bodyColor, pose) {
   let offsetX = 0, offsetY = 0, rot = 0;
-  if (pose === 'singLEFT')  { offsetX = -15; rot = -0.08; }
-  if (pose === 'singDOWN')  { offsetY = 12; }
-  if (pose === 'singUP')    { offsetY = -12; }
-  if (pose === 'singRIGHT') { offsetX = 15; rot = 0.08; }
+  if (pose === 'singLEFT')  { offsetX = -25; rot = -0.08; }
+  if (pose === 'singDOWN')  { offsetY = 20; }
+  if (pose === 'singUP')    { offsetY = -20; }
+  if (pose === 'singRIGHT') { offsetX = 25; rot = 0.08; }
 
   c.save();
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
-  // Scaled comfortably inside 250x250 frame so corners are never clipped
+  // Scaled 2x larger to match standard Impostor height!
   // Backpack on Right (+X)
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
-  c.lineWidth = 6;
+  c.lineWidth = 10;
   c.beginPath();
-  c.roundRect(42, -35, 24, 75, 10);
+  c.roundRect(85, -60, 45, 170, 20);
   c.fill();
   c.stroke();
 
-  // Body
+  // Main Body
   c.beginPath();
-  c.roundRect(-50, -70, 100, 140, [50, 50, 20, 20]);
+  c.roundRect(-100, -145, 200, 290, [100, 100, 40, 40]);
   c.fill();
   c.stroke();
 
   // Visor on Left (-X) -> Faces Left toward Opponent & GF!
   c.fillStyle = '#7feaff';
   c.beginPath();
-  c.roundRect(-42, -45, 60, 34, 18);
+  c.roundRect(-85, -95, 120, 72, 36);
   c.fill();
   c.stroke();
 
   // Visor Highlight
   c.fillStyle = '#ffffff';
   c.beginPath();
-  c.roundRect(-30, -40, 36, 10, 5);
+  c.roundRect(-60, -85, 75, 20, 10);
   c.fill();
 
   c.restore();
@@ -251,7 +251,7 @@ setupDraggableAnchor('hatMarker', 'hatCoords', state.hatAnchor);
 setupDraggableAnchor('camMarker', 'camCoords', state.camAnchor);
 
 document.getElementById('hatMarker').style.left = '46%';
-document.getElementById('hatMarker').style.top = '28%';
+document.getElementById('hatMarker').style.top = '20%';
 document.getElementById('camMarker').style.left = '58%';
 document.getElementById('camMarker').style.top = '45%';
 
@@ -311,10 +311,10 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 10. AUTO-BAKED FALLBACK SPRITESHEET (250x250 cells with built-in border padding)
+// 10. AUTO-BAKED FALLBACK SPRITESHEET (Large 400x400 cells to match standard Impostor height)
 async function generateFallbackSpritesheet(bodyColor) {
   const sheet = document.createElement('canvas');
-  const frameW = 250, frameH = 250;
+  const frameW = 400, frameH = 400;
   sheet.width = frameW * 4;
   sheet.height = frameH * 2;
   const sCtx = sheet.getContext('2d');
@@ -351,7 +351,7 @@ async function generateCosmicubeBanner(title, bodyColor) {
 
   bCtx.save();
   bCtx.translate(330, 85);
-  bCtx.scale(0.45, 0.45);
+  bCtx.scale(0.35, 0.35);
   renderProceduralImpostor(bCtx, bodyColor, 'idle');
   bCtx.restore();
 
@@ -379,7 +379,7 @@ async function bundleModZip() {
   const currencyType = document.getElementById('currencyMode').value === 'custom' ? 'modpods' : 'beans';
 
   const offsetX = parseInt(document.getElementById('stageOffsetX').value) || 0;
-  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 350;
+  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 420;
 
   // A. Metadata
   const metaData = {
@@ -397,7 +397,7 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. DUAL-ENGINE COMPATIBLE CHARACTER SCHEMA (Psych + Codename / NightmareVision)
+  // B. DUAL-ENGINE COMPATIBLE CHARACTER SCHEMA
   const charConfigData = {
     // Codename / NightmareVision keys
     renderType: "sparrow",
@@ -406,7 +406,7 @@ async function bundleModZip() {
     assetPath: `characters/${skinId}`,
     danceEvery: 2,
     singTime: 6,
-    flipX: false, // Sprite is drawn facing Left, so flipX: false faces the opponent cleanly!
+    flipX: true, // Crucial: Engine inverts Player characters (!true = false), keeping him facing Left!
     isPixel: document.getElementById('antialiasSelect').value === 'false',
     startingAnimation: "idle",
     healthIcon: {
@@ -416,7 +416,7 @@ async function bundleModZip() {
 
     // Psych Engine keys (matching idkbf.json)
     image: `characters/${skinId}`,
-    flip_x: false,
+    flip_x: true,
     no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
     position: [offsetX, offsetY],
     offsets: [offsetX, offsetY],
@@ -435,17 +435,17 @@ async function bundleModZip() {
       { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFTmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWNmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWNmiss", offsets: [0, 0], frameRate: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "singUPmiss", anim: "singUPmiss", prefix: "singUPmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHTmiss", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHTmiss", offsets: [0, 0], frameRate: 24, looped: false, loop: false, indices: [], frameIndices: [] },
       { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] }
     ]
   };
   const charConfigString = JSON.stringify(charConfigData, null, 2);
 
-  // C. Spritesheet Image Data
+  // C. Spritesheet Image Data (400x400 cells)
   let spriteBlob;
-  let frameW = 250, frameH = 250;
+  let frameW = 400, frameH = 400;
   let cols = state.cols, rows = state.rows;
 
   if (state.rawSpriteFile) {
@@ -456,8 +456,8 @@ async function bundleModZip() {
     spriteBlob = await generateFallbackSpritesheet(bodyColor);
     cols = 4;
     rows = 2;
-    frameW = 250;
-    frameH = 250;
+    frameW = 400;
+    frameH = 400;
   }
 
   // D. Full Padded Sparrow XML (Matches idkbf.xml specification!)
@@ -468,7 +468,6 @@ async function bundleModZip() {
     const aName = poseNames[i] || "idle";
     const x = (i % cols) * frameW;
     const y = Math.floor(i / cols) * frameH;
-    // Includes frameX/Y and frameWidth/Height so corners are NEVER clipped!
     xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
   }
   xmlString += `</TextureAtlas>`;
