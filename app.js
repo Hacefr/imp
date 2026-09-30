@@ -16,7 +16,8 @@ const state = {
     win: null
   },
   hatAnchor: { x: 0, y: -45 },
-  camAnchor: { x: 100, y: -100 }
+  camAnchor: { x: 100, y: -100 },
+  stageOffset: { x: 0, y: -320 } // Pulls character down to the floor
 };
 
 // 2. STARFIELD BACKGROUND SIMULATION
@@ -90,7 +91,7 @@ function drawCharacter() {
 
   ctx.save();
   ctx.translate(charCanvas.width / 2, charCanvas.height / 2);
-  ctx.scale(-scale, scale);
+  ctx.scale(scale, scale);
 
   if (state.spriteImage) {
     const frameW = state.spriteImage.width / state.cols;
@@ -128,7 +129,7 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.strokeStyle = '#000000';
   c.lineWidth = 7;
   c.beginPath();
-  c.roundRect(-85, -40, 30, 95, 12);
+  c.roundRect(55, -40, 30, 95, 12);
   c.fill();
   c.stroke();
 
@@ -138,17 +139,17 @@ function renderProceduralImpostor(c, bodyColor, pose) {
   c.fill();
   c.stroke();
 
-  // Visor
+  // Visor (Facing Left)
   c.fillStyle = '#7feaff';
   c.beginPath();
-  c.roundRect(-25, -55, 75, 42, 22);
+  c.roundRect(-50, -55, 75, 42, 22);
   c.fill();
   c.stroke();
 
   // Visor Shine
   c.fillStyle = '#ffffff';
   c.beginPath();
-  c.roundRect(-10, -50, 45, 12, 6);
+  c.roundRect(-35, -50, 45, 12, 6);
   c.fill();
 
   c.restore();
@@ -309,7 +310,7 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 10. AUTO-BAKED FALLBACK SPRITESHEET
+// 10. AUTO-BAKED FALLBACK SPRITESHEET (Each animation frame cleanly separated)
 async function generateFallbackSpritesheet(bodyColor) {
   const sheet = document.createElement('canvas');
   const frameW = 200, frameH = 200;
@@ -392,18 +393,18 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. EXACT CODENAME / NIGHTMAREVISION CHARACTER SCHEMA (matches bfweird.json)
+  // B. EXACT CODENAME / NIGHTMAREVISION CHARACTER SCHEMA
   const codenameCharData = {
-    renderType: "sparrow", // Tells engine to read PNG + XML
+    renderType: "sparrow",
     version: "1.0.1",
     name: skinId,
     assetPath: `characters/${skinId}`,
     scale: scale,
-    offsets: [0, 0],
+    offsets: [state.stageOffset.x, state.stageOffset.y], // [0, -320] anchors him to the carpet floor!
     cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
     danceEvery: 2,
     singTime: 6,
-    flipX: true,
+    flipX: false, // Correct orientation: faces Grey and GF
     isPixel: document.getElementById('antialiasSelect').value === 'false',
     startingAnimation: "idle",
     healthIcon: {
@@ -442,14 +443,15 @@ async function bundleModZip() {
     frameH = 200;
   }
 
-  // D. Construct Sparrow XML
-  const animNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
+  // D. Clean Multi-Frame Sparrow XML Mapping
   let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png">\n`;
+  const poseNames = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace", "idle", "idle"];
+
   for (let i = 0; i < cols * rows; i++) {
-    const aName = animNames[i % animNames.length];
+    const aName = poseNames[i] || "idle";
     const x = (i % cols) * frameW;
     const y = Math.floor(i / cols) * frameH;
-    xmlString += `  <SubTexture name="${aName}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
+    xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}"/>\n`;
   }
   xmlString += `</TextureAtlas>`;
 
