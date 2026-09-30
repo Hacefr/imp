@@ -1,39 +1,54 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
- * Includes complete .imp Project Save/Load Engine, Frame Timing & Pacing Calibrator.
+ * Complete with Multi-Character Manager, Interactive Drag & Drop Cosmicube Graph,
+ * and .imp Project Serialization.
  */
 
 // 1. GLOBAL STATE
 const state = {
   mode: 'upload',
-  rawSpriteFile: null,
-  spriteImage: null,
-  cols: 5,
-  rows: 1,
   activePose: 'idle',
   idleFrameTick: 0,
   isSinging: false,
   singTimeout: null,
+
+  // MULTI-CHARACTER ROSTER
+  characters: [
+    {
+      skinId: 'bf_star_impostor',
+      skinDisplayName: 'Star Impostor',
+      charScale: 1.75,
+      stageOffsetX: 0,
+      stageOffsetY: 400,
+      healthColor: '#ffdd00',
+      cols: 5,
+      rows: 1,
+      rawSpriteFile: null,
+      spriteImage: null,
+      customNodeRenderImage: null,
+      icons: { normal: null, lose: null, win: null },
+      hatAnchor: { x: 0, y: -90 },
+      camAnchor: { x: 100, y: -100 }
+    }
+  ],
+  activeCharIndex: 0,
+
+  // DRAGGABLE COSMICUBE NODE GRAPH
+  cosmicubeNodes: [
+    { id: 'root', title: 'Start', cost: 0, type: 'start', parent: null, direction: null, x: 220, y: 260, charRef: '' },
+    { id: 'bf_star_impostor', title: 'Star Impostor', cost: 150, type: 'playerSkin', parent: 'root', direction: 'north', x: 220, y: 120, charRef: 'bf_star_impostor' }
+  ],
+  selectedNodeId: 'bf_star_impostor',
+
   customBannerImage: null,
-  customNodeRenderImage: null,
-  icons: {
-    normal: null,
-    lose: null,
-    win: null
-  },
-  looseFrames: {
-    idle: null,
-    left: null,
-    down: null,
-    up: null,
-    right: null
-  },
-  hatAnchor: { x: 0, y: -90 },
-  camAnchor: { x: 100, y: -100 }
+  looseFrames: { idle: null, left: null, down: null, up: null, right: null }
 };
 
 const poseLabels = ["IDLE", "LEFT", "DOWN", "UP", "RIGHT", "HEY / PEACE", "IDLE 2", "IDLE 3"];
+
+function getCurrentChar() {
+  return state.characters[state.activeCharIndex] || state.characters[0];
+}
 
 // 2. STARFIELD BACKGROUND SIMULATION
 const starCanvas = document.getElementById('starfield');
@@ -89,9 +104,264 @@ function switchTab(tabId) {
     export: "ENGINE MANIFEST & DIRECTORY PIPELINE"
   };
   document.getElementById('subTitle').innerText = titles[tabId];
+
+  if (tabId === 'cosmic') {
+    renderDraggableNodeBoard();
+  }
 }
 
-// 4. ANIMATED SPRITESHEET GENERATOR (14 Frames)
+// 4. MULTI-CHARACTER ROSTER CONTROLLER
+function renderRosterTabs() {
+  const container = document.getElementById('rosterTabs');
+  container.innerHTML = '';
+
+  state.characters.forEach((char, idx) => {
+    const tab = document.createElement('div');
+    tab.className = `roster-tab ${idx === state.activeCharIndex ? 'active' : ''}`;
+    tab.innerHTML = `<span>🧑‍🚀 ${char.skinDisplayName}</span>`;
+    tab.onclick = () => selectCharacter(idx);
+    container.appendChild(tab);
+  });
+}
+
+function selectCharacter(idx) {
+  state.activeCharIndex = idx;
+  const char = getCurrentChar();
+
+  document.getElementById('skinId').value = char.skinId;
+  document.getElementById('skinDisplayName').value = char.skinDisplayName;
+  document.getElementById('charScale').value = char.charScale;
+  document.getElementById('stageOffsetX').value = char.stageOffsetX;
+  document.getElementById('stageOffsetY').value = char.stageOffsetY;
+  document.getElementById('healthColor').value = char.healthColor;
+  document.getElementById('gridCols').value = char.cols;
+  document.getElementById('gridRows').value = char.rows;
+
+  document.getElementById('hatCoords').innerText = `${char.hatAnchor.x}, ${char.hatAnchor.y}`;
+  document.getElementById('camCoords').innerText = `${char.camAnchor.x}, ${char.camAnchor.y}`;
+
+  renderRosterTabs();
+  updateSlicerMap();
+  drawCharacter();
+}
+
+function addNewCharacter() {
+  const newIdx = state.characters.length + 1;
+  const newChar = {
+    skinId: `custom_char_${newIdx}`,
+    skinDisplayName: `Character ${newIdx}`,
+    charScale: 1.75,
+    stageOffsetX: 0,
+    stageOffsetY: 400,
+    healthColor: '#ff3344',
+    cols: 5,
+    rows: 1,
+    rawSpriteFile: null,
+    spriteImage: null,
+    customNodeRenderImage: null,
+    icons: { normal: null, lose: null, win: null },
+    hatAnchor: { x: 0, y: -90 },
+    camAnchor: { x: 100, y: -100 }
+  };
+
+  state.characters.push(newChar);
+  selectCharacter(state.characters.length - 1);
+  updateNodeCharDropdown();
+}
+
+function updateCurrentCharacterProp(prop, val) {
+  const char = getCurrentChar();
+  if (char) {
+    char[prop] = val;
+    if (prop === 'skinDisplayName') renderRosterTabs();
+  }
+}
+
+// 5. DRAGGABLE COSMICUBE NODE GRAPH CONTROLLER
+function renderDraggableNodeBoard() {
+  const layer = document.getElementById('nodesLayer');
+  layer.innerHTML = '';
+
+  state.cosmicubeNodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = `board-node ${node.id === state.selectedNodeId ? 'selected' : ''}`;
+    el.id = `nodeEl_${node.id}`;
+    el.style.left = `${node.x}px`;
+    el.style.top = `${node.y}px`;
+
+    let iconHtml = '<span style="font-size:1.4rem;">🏁</span>';
+    if (node.type === 'playerSkin') {
+      iconHtml = '<span style="font-size:1.4rem;">🧑‍🚀</span>';
+    } else if (node.type === 'pet') {
+      iconHtml = '<span style="font-size:1.4rem;">🐕</span>';
+    } else if (node.type === 'hat') {
+      iconHtml = '<span style="font-size:1.4rem;">🎩</span>';
+    }
+
+    el.innerHTML = `
+      ${iconHtml}
+      <div class="node-cost-tag">${node.cost > 0 ? node.cost : 'FREE'}</div>
+    `;
+
+    // Click to Inspect
+    el.onmousedown = (e) => {
+      e.stopPropagation();
+      selectCosmicubeNode(node.id);
+      startNodeDrag(node, el, e);
+    };
+
+    layer.appendChild(el);
+  });
+
+  drawNodeConnectionLines();
+  populateNodeInspector();
+}
+
+function drawNodeConnectionLines() {
+  const svg = document.getElementById('nodeLinesSvg');
+  svg.innerHTML = '';
+
+  state.cosmicubeNodes.forEach(node => {
+    if (node.parent) {
+      const parentNode = state.cosmicubeNodes.find(n => n.id === node.parent);
+      if (parentNode) {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', parentNode.x + 38);
+        line.setAttribute('y1', parentNode.y + 38);
+        line.setAttribute('x2', node.x + 38);
+        line.setAttribute('y2', node.y + 38);
+        line.setAttribute('stroke', '#5b3a8a');
+        line.setAttribute('stroke-width', '4');
+        line.setAttribute('stroke-dasharray', '6 4');
+        svg.appendChild(line);
+      }
+    }
+  });
+}
+
+function startNodeDrag(node, el, e) {
+  const board = document.getElementById('nodeBoardContainer');
+  const boardRect = board.getBoundingClientRect();
+  let startX = e.clientX - node.x;
+  let startY = e.clientY - node.y;
+
+  function onMouseMove(moveEvent) {
+    let newX = moveEvent.clientX - startX;
+    let newY = moveEvent.clientY - startY;
+
+    // Bounds limit
+    newX = Math.max(10, Math.min(boardRect.width - 86, newX));
+    newY = Math.max(10, Math.min(boardRect.height - 86, newY));
+
+    node.x = Math.round(newX);
+    node.y = Math.round(newY);
+
+    el.style.left = `${node.x}px`;
+    el.style.top = `${node.y}px`;
+
+    drawNodeConnectionLines();
+  }
+
+  function onMouseUp() {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  }
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+}
+
+function selectCosmicubeNode(id) {
+  state.selectedNodeId = id;
+  document.querySelectorAll('.board-node').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById(`nodeEl_${id}`);
+  if (el) el.classList.add('selected');
+  populateNodeInspector();
+}
+
+function populateNodeInspector() {
+  const node = state.cosmicubeNodes.find(n => n.id === state.selectedNodeId) || state.cosmicubeNodes[0];
+  if (!node) return;
+
+  document.getElementById('nodeIdInput').value = node.id;
+  document.getElementById('nodeNameInput').value = node.title;
+  document.getElementById('nodeCostInput').value = node.cost;
+  document.getElementById('nodeTypeSelect').value = node.type || 'playerSkin';
+  document.getElementById('nodeDirSelect').value = node.direction || 'north';
+
+  updateNodeParentDropdown(node);
+  updateNodeCharDropdown(node);
+}
+
+function updateNodeParentDropdown(currentNode) {
+  const select = document.getElementById('nodeParentSelect');
+  select.innerHTML = '';
+
+  state.cosmicubeNodes.forEach(n => {
+    if (n.id !== currentNode.id) {
+      const opt = document.createElement('option');
+      opt.value = n.id;
+      opt.innerText = `${n.title} (${n.id})`;
+      if (currentNode.parent === n.id) opt.selected = true;
+      select.appendChild(opt);
+    }
+  });
+}
+
+function updateNodeCharDropdown(currentNode) {
+  const select = document.getElementById('nodeCharSelect');
+  select.innerHTML = '<option value="">(None / Cosmetic)</option>';
+
+  state.characters.forEach(char => {
+    const opt = document.createElement('option');
+    opt.value = char.skinId;
+    opt.innerText = `${char.skinDisplayName} (${char.skinId})`;
+    if (currentNode && currentNode.charRef === char.skinId) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function updateSelectedNodeProp(prop, val) {
+  const node = state.cosmicubeNodes.find(n => n.id === state.selectedNodeId);
+  if (node) {
+    node[prop] = val;
+    renderDraggableNodeBoard();
+  }
+}
+
+function addNewCosmicubeNode() {
+  const nodeNum = state.cosmicubeNodes.length + 1;
+  const parent = state.selectedNodeId || 'root';
+  const parentNode = state.cosmicubeNodes.find(n => n.id === parent) || state.cosmicubeNodes[0];
+
+  const newNode = {
+    id: `item_node_${nodeNum}`,
+    title: `Reward ${nodeNum}`,
+    cost: 150,
+    type: 'playerSkin',
+    parent: parent,
+    direction: 'north',
+    x: Math.min(450, parentNode.x + 90),
+    y: Math.max(30, parentNode.y - 40),
+    charRef: ''
+  };
+
+  state.cosmicubeNodes.push(newNode);
+  selectCosmicubeNode(newNode.id);
+  renderDraggableNodeBoard();
+}
+
+function deleteSelectedNode() {
+  if (state.selectedNodeId === 'root') {
+    alert("Cannot delete the root starting node!");
+    return;
+  }
+  state.cosmicubeNodes = state.cosmicubeNodes.filter(n => n.id !== state.selectedNodeId);
+  selectCosmicubeNode('root');
+  renderDraggableNodeBoard();
+}
+
+// 6. ANIMATED TEMPLATE GENERATOR
 async function generateAnimatedTemplateImage(bodyColor) {
   const sheet = document.createElement('canvas');
   const fw = 300, fh = 260;
@@ -99,7 +369,6 @@ async function generateAnimatedTemplateImage(bodyColor) {
   sheet.height = fh * 2;
   const sCtx = sheet.getContext('2d');
 
-  // Frame 0-3: Idle (Breathing Bop)
   const idleBops = [0, -6, -12, -4];
   idleBops.forEach((offsetY, i) => {
     sCtx.save();
@@ -108,7 +377,6 @@ async function generateAnimatedTemplateImage(bodyColor) {
     sCtx.restore();
   });
 
-  // Frame 4-5: Left Pose
   [0, 1].forEach((sub, i) => {
     sCtx.save();
     sCtx.translate((4 + i) * fw + fw / 2, fh * 0.88);
@@ -116,13 +384,11 @@ async function generateAnimatedTemplateImage(bodyColor) {
     sCtx.restore();
   });
 
-  // Frame 6: Down Pose 1
   sCtx.save();
   sCtx.translate(6 * fw + fw / 2, fh * 0.88);
   renderProceduralImpostor(sCtx, bodyColor, 'singDOWN', 0);
   sCtx.restore();
 
-  // Row 2
   const row2Poses = ['singDOWN', 'singUP', 'singUP', 'singRIGHT', 'singRIGHT', 'hey', 'hey'];
   row2Poses.forEach((pose, i) => {
     sCtx.save();
@@ -138,48 +404,50 @@ async function generateAnimatedTemplateImage(bodyColor) {
   });
 }
 
-// 5. SLICER & STAGE PIPELINE
 function switchSlicerMode(mode) {
   state.mode = mode;
   document.getElementById('customUploadSection').style.display = (mode === 'upload') ? 'block' : 'none';
   document.getElementById('loosePngsSection').style.display = (mode === 'loose_pngs') ? 'block' : 'none';
 
+  const char = getCurrentChar();
+
   if (mode === 'animated_template') {
-    state.cols = 7;
-    state.rows = 2;
+    char.cols = 7;
+    char.rows = 2;
     document.getElementById('gridCols').value = 7;
     document.getElementById('gridRows').value = 2;
-    generateAnimatedTemplateImage(document.getElementById('healthColor').value).then(img => {
-      state.spriteImage = img;
+    generateAnimatedTemplateImage(char.healthColor).then(img => {
+      char.spriteImage = img;
       updateSlicerMap();
       autoCalibrateScale();
       drawCharacter();
     });
   } else if (mode === 'static_template') {
-    state.cols = 5;
-    state.rows = 1;
+    char.cols = 5;
+    char.rows = 1;
     document.getElementById('gridCols').value = 5;
     document.getElementById('gridRows').value = 1;
-    state.spriteImage = null;
+    char.spriteImage = null;
     updateSlicerMap();
     autoCalibrateScale();
     drawCharacter();
   } else if (mode === 'upload') {
-    state.cols = parseInt(document.getElementById('gridCols').value) || 5;
-    state.rows = parseInt(document.getElementById('gridRows').value) || 1;
+    char.cols = parseInt(document.getElementById('gridCols').value) || 5;
+    char.rows = parseInt(document.getElementById('gridRows').value) || 1;
     updateSlicerMap();
     drawCharacter();
   }
 }
 
-// 6. LABELED SPRITESHEET SLICER VIEWER
+// 7. LABELED SPRITESHEET SLICER VIEWER
 const slicerCanvas = document.getElementById('slicerCanvas');
 const slCtx = slicerCanvas.getContext('2d');
 
 function updateSlicerMap() {
-  const img = state.spriteImage;
-  const cols = state.cols;
-  const rows = state.rows;
+  const char = getCurrentChar();
+  const img = char.spriteImage;
+  const cols = char.cols;
+  const rows = char.rows;
 
   if (img) {
     const frameW = Math.floor(img.width / cols);
@@ -231,11 +499,9 @@ function updateSlicerMap() {
       slCtx.fillText(`[${i}: ${poseLabels[i]}]`, i * fw + 6, 18);
     }
   }
-
-  updateNodeRenderIconPreview();
 }
 
-// 7. STAGE SIMULATOR
+// 8. STAGE SIMULATOR
 const charCanvas = document.getElementById('charCanvas');
 const ctx = charCanvas.getContext('2d');
 
@@ -291,6 +557,7 @@ function drawStageBackground(c, type) {
 
 function drawCharacter() {
   ctx.clearRect(0, 0, charCanvas.width, charCanvas.height);
+  const char = getCurrentChar();
 
   const bgType = document.getElementById('stageBgSelect') ? document.getElementById('stageBgSelect').value : 'mira';
   drawStageBackground(ctx, bgType);
@@ -298,17 +565,17 @@ function drawCharacter() {
   const antialias = document.getElementById('antialiasSelect').value === 'true';
   ctx.imageSmoothingEnabled = antialias;
 
-  const scale = parseFloat(document.getElementById('charScale').value) || 1.75;
-  const color = document.getElementById('healthColor').value;
+  const scale = parseFloat(char.charScale) || 1.75;
+  const color = char.healthColor || '#ffdd00';
   const groundY = charCanvas.height * 0.78;
 
   ctx.save();
   ctx.translate(charCanvas.width / 2, groundY);
   ctx.scale(scale, scale);
 
-  if (state.spriteImage) {
-    const frameW = state.spriteImage.width / state.cols;
-    const frameH = state.spriteImage.height / state.rows;
+  if (char.spriteImage) {
+    const frameW = char.spriteImage.width / char.cols;
+    const frameH = char.spriteImage.height / char.rows;
     
     let frameIndex = 0;
     if (state.mode === 'animated_template') {
@@ -327,12 +594,12 @@ function drawCharacter() {
       frameIndex = poseIndexMap[state.activePose] || 0;
     }
     
-    const col = frameIndex % state.cols;
-    const row = Math.floor(frameIndex / state.cols) % state.rows;
+    const col = frameIndex % char.cols;
+    const row = Math.floor(frameIndex / char.cols) % char.rows;
     const sx = col * frameW;
     const sy = row * frameH;
 
-    ctx.drawImage(state.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH, frameW, frameH);
+    ctx.drawImage(char.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH, frameW, frameH);
   } else {
     renderProceduralImpostor(ctx, color, state.activePose);
   }
@@ -379,10 +646,10 @@ function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   c.restore();
 }
 
-// 8. SIMULATED BEAT CONDUCTOR (Bops once per beat instead of vibrating endlessly!)
+// 9. CONDUCTOR BEAT TICKER
 let beatTimer = 0;
 function stageAnimationLoop(time) {
-  if (time - beatTimer > 500) { // ~120 BPM tempo
+  if (time - beatTimer > 500) {
     beatTimer = time;
     if (!state.isSinging) {
       state.idleFrameTick++;
@@ -395,28 +662,32 @@ function stageAnimationLoop(time) {
 }
 requestAnimationFrame(stageAnimationLoop);
 
-// 9. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
+// 10. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
 function autoCalibrateScale() {
+  const char = getCurrentChar();
   let currentHeight = 240;
-  if (state.spriteImage) {
-    currentHeight = Math.floor(state.spriteImage.height / state.rows);
+  if (char.spriteImage) {
+    currentHeight = Math.floor(char.spriteImage.height / char.rows);
   }
   const calculatedScale = (380 / currentHeight).toFixed(2);
+  char.charScale = calculatedScale;
   document.getElementById('charScale').value = calculatedScale;
   drawCharacter();
 }
 
-// 10. FILE UPLOADS
+// 11. FILE UPLOAD HANDLERS
 function handleSpriteUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  state.rawSpriteFile = file;
+  const char = getCurrentChar();
+  char.rawSpriteFile = file;
+
   const reader = new FileReader();
   reader.onload = (event) => {
     const img = new Image();
     img.onload = () => {
-      state.spriteImage = img;
+      char.spriteImage = img;
       updateSlicerMap();
       autoCalibrateScale();
       drawCharacter();
@@ -427,13 +698,13 @@ function handleSpriteUpload(e) {
 }
 
 function updateGridSlices() {
-  state.cols = parseInt(document.getElementById('gridCols').value) || 5;
-  state.rows = parseInt(document.getElementById('gridRows').value) || 1;
+  const char = getCurrentChar();
+  char.cols = parseInt(document.getElementById('gridCols').value) || 5;
+  char.rows = parseInt(document.getElementById('gridRows').value) || 1;
   updateSlicerMap();
   drawCharacter();
 }
 
-// 11. LOOSE PNGs AUTO-PACKER
 async function handleLooseFrame(pose, e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -472,9 +743,10 @@ function stitchLooseFramesIntoSprite() {
 
   const finalImg = new Image();
   finalImg.onload = () => {
-    state.spriteImage = finalImg;
-    state.cols = 5;
-    state.rows = 1;
+    const char = getCurrentChar();
+    char.spriteImage = finalImg;
+    char.cols = 5;
+    char.rows = 1;
     document.getElementById('gridCols').value = 5;
     document.getElementById('gridRows').value = 1;
     updateSlicerMap();
@@ -486,26 +758,27 @@ function stitchLooseFramesIntoSprite() {
 
 // 12. 1-CLICK 3-STATE ICONS
 async function autoGenerateIconsFromIdle() {
+  const char = getCurrentChar();
   const baseCanvas = document.createElement('canvas');
   baseCanvas.width = 150;
   baseCanvas.height = 150;
   const bCtx = baseCanvas.getContext('2d');
 
-  if (state.spriteImage) {
-    const fw = Math.floor(state.spriteImage.width / state.cols);
-    const fh = Math.floor(state.spriteImage.height / state.rows);
-    bCtx.drawImage(state.spriteImage, 0, 0, fw, fh, 10, 10, 130, 130);
+  if (char.spriteImage) {
+    const fw = Math.floor(char.spriteImage.width / char.cols);
+    const fh = Math.floor(char.spriteImage.height / char.rows);
+    bCtx.drawImage(char.spriteImage, 0, 0, fw, fh, 10, 10, 130, 130);
   } else {
     bCtx.save();
     bCtx.translate(75, 120);
     bCtx.scale(0.55, 0.55);
-    renderProceduralImpostor(bCtx, document.getElementById('healthColor').value, 'idle');
+    renderProceduralImpostor(bCtx, char.healthColor, 'idle');
     bCtx.restore();
   }
 
   const imgNormal = new Image();
   imgNormal.src = baseCanvas.toDataURL('image/png');
-  state.icons.normal = imgNormal;
+  char.icons.normal = imgNormal;
   document.getElementById('iconNormalStatus').innerText = 'Auto-Generated';
 
   const loseCanvas = document.createElement('canvas');
@@ -524,7 +797,7 @@ async function autoGenerateIconsFromIdle() {
 
   const imgLose = new Image();
   imgLose.src = loseCanvas.toDataURL('image/png');
-  state.icons.lose = imgLose;
+  char.icons.lose = imgLose;
   document.getElementById('iconLoseStatus').innerText = 'Auto-Generated';
 
   const winCanvas = document.createElement('canvas');
@@ -541,21 +814,22 @@ async function autoGenerateIconsFromIdle() {
 
   const imgWin = new Image();
   imgWin.src = winCanvas.toDataURL('image/png');
-  state.icons.win = imgWin;
+  char.icons.win = imgWin;
   document.getElementById('iconWinStatus').innerText = 'Auto-Generated';
 
-  alert("Generated 3-State Icons: Normal, Lose (Cracked), and Win (Sparkling)!");
+  alert(`Generated 3-State Icons for "${char.skinDisplayName}"!`);
 }
 
 function handleIconUpload(slot, e) {
   const file = e.target.files[0];
   if (!file) return;
 
+  const char = getCurrentChar();
   const reader = new FileReader();
   reader.onload = (event) => {
     const img = new Image();
     img.onload = () => {
-      state.icons[slot] = img;
+      char.icons[slot] = img;
       document.getElementById(`icon${slot.charAt(0).toUpperCase() + slot.slice(1)}Status`).innerText = `Loaded (${img.width}x${img.height})`;
     };
     img.src = event.target.result;
@@ -582,42 +856,19 @@ function handleNodeRenderUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
+  const char = getCurrentChar();
   const reader = new FileReader();
   reader.onload = (event) => {
     const img = new Image();
     img.onload = () => {
-      state.customNodeRenderImage = img;
-      const nCanvas = document.getElementById('nodeIconCanvas');
-      const nCtx = nCanvas.getContext('2d');
-      nCtx.clearRect(0, 0, 48, 48);
-      nCtx.drawImage(img, 0, 0, 48, 48);
+      char.customNodeRenderImage = img;
     };
     img.src = event.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-function updateNodeRenderIconPreview() {
-  if (state.customNodeRenderImage) return;
-  const nCanvas = document.getElementById('nodeIconCanvas');
-  const nCtx = nCanvas.getContext('2d');
-  nCtx.clearRect(0, 0, 48, 48);
-
-  if (state.spriteImage) {
-    const fw = Math.floor(state.spriteImage.width / state.cols);
-    const fh = Math.floor(state.spriteImage.height / state.rows);
-    nCtx.drawImage(state.spriteImage, 0, 0, fw, fh, 2, 2, 44, 44);
-  } else {
-    nCtx.fillStyle = '#ffdd00';
-    nCtx.beginPath();
-    nCtx.arc(24, 24, 18, 0, Math.PI * 2);
-    nCtx.fill();
-    nCtx.fillStyle = '#7feaff';
-    nCtx.fillRect(12, 18, 16, 10);
-  }
-}
-
-// 13. KEYBOARD LISTENER (WITH SING HOLD DURATION)
+// 13. KEYBOARD LISTENER
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   let newPose = null;
@@ -640,12 +891,12 @@ window.addEventListener('keydown', (e) => {
       state.activePose = 'idle';
       document.getElementById('activePoseName').innerText = 'idle';
       drawCharacter();
-    }, 450); // Holds pose for note duration before returning to idle
+    }, 450);
   }
 });
 
 // 14. DRAGGABLE ANCHORS
-function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
+function setupDraggableAnchor(elementId, coordDisplayId, anchorProp) {
   const el = document.getElementById(elementId);
   const container = document.getElementById('stageCanvasContainer');
   let dragging = false;
@@ -653,6 +904,7 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
   el.addEventListener('mousedown', () => dragging = true);
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
+    const char = getCurrentChar();
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -662,16 +914,16 @@ function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
 
     const relX = Math.round(x - rect.width / 2);
     const relY = Math.round(y - rect.height * 0.78);
-    stateTarget.x = relX;
-    stateTarget.y = relY;
+    char[anchorProp].x = relX;
+    char[anchorProp].y = relY;
 
     document.getElementById(coordDisplayId).innerText = `${relX}, ${relY}`;
   });
   window.addEventListener('mouseup', () => dragging = false);
 }
 
-setupDraggableAnchor('hatMarker', 'hatCoords', state.hatAnchor);
-setupDraggableAnchor('camMarker', 'camCoords', state.camAnchor);
+setupDraggableAnchor('hatMarker', 'hatCoords', 'hatAnchor');
+setupDraggableAnchor('camMarker', 'camCoords', 'camAnchor');
 
 document.getElementById('hatMarker').style.left = '46%';
 document.getElementById('hatMarker').style.top = '22%';
@@ -680,8 +932,13 @@ document.getElementById('camMarker').style.top = '45%';
 
 // 15. COSMICUBE SHOP & SYNC
 function syncSkinDisplayName() {
-  const name = document.getElementById('skinDisplayName').value || 'Star Impostor';
-  document.getElementById('nodeNameInput').value = name;
+  const char = getCurrentChar();
+  const node = state.cosmicubeNodes.find(n => n.id === state.selectedNodeId);
+  if (node && node.id === char.skinId) {
+    node.title = char.skinDisplayName;
+    document.getElementById('nodeNameInput').value = char.skinDisplayName;
+    renderDraggableNodeBoard();
+  }
 }
 
 function syncCubeTitle() {
@@ -689,30 +946,18 @@ function syncCubeTitle() {
   document.getElementById('bannerTitle').innerText = title;
 }
 
-function selectNode(name, cost, nodeEl) {
-  document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
-  nodeEl.classList.add('selected');
-  document.getElementById('nodeNameInput').value = name;
-  document.getElementById('nodeCostInput').value = cost;
-}
-
-function updateActiveNodeCost(val) {
-  const selectedNode = document.querySelector('.tree-node.selected .node-cost');
-  if (selectedNode) selectedNode.innerText = val > 0 ? val : 'FREE';
-}
-
 function toggleCurrency(mode) {
   document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
 }
 
 // 16. GRAPHICS GENERATORS
-async function generateStitchedIconBlob() {
+async function generateStitchedIconBlobForChar(char) {
   const offCanvas = document.createElement('canvas');
   offCanvas.width = 450;
   offCanvas.height = 150;
   const oCtx = offCanvas.getContext('2d');
 
-  const slots = [state.icons.normal, state.icons.lose, state.icons.win];
+  const slots = [char.icons.normal, char.icons.lose, char.icons.win];
   slots.forEach((iconImg, i) => {
     const dx = i * 150;
     if (iconImg) {
@@ -778,23 +1023,23 @@ async function generateCosmicubeBanner(title, bodyColor) {
   return new Promise(resolve => bCanvas.toBlob(resolve, 'image/png'));
 }
 
-async function generateNodeRenderItemBlob() {
+async function generateNodeRenderItemBlobForChar(char) {
   const rCanvas = document.createElement('canvas');
   rCanvas.width = 180;
   rCanvas.height = 180;
   const rCtx = rCanvas.getContext('2d');
 
-  if (state.customNodeRenderImage) {
-    rCtx.drawImage(state.customNodeRenderImage, 0, 0, 180, 180);
-  } else if (state.spriteImage) {
-    const fw = Math.floor(state.spriteImage.width / state.cols);
-    const fh = Math.floor(state.spriteImage.height / state.rows);
-    rCtx.drawImage(state.spriteImage, 0, 0, fw, fh, 10, 10, 160, 160);
+  if (char.customNodeRenderImage) {
+    rCtx.drawImage(char.customNodeRenderImage, 0, 0, 180, 180);
+  } else if (char.spriteImage) {
+    const fw = Math.floor(char.spriteImage.width / char.cols);
+    const fh = Math.floor(char.spriteImage.height / char.rows);
+    rCtx.drawImage(char.spriteImage, 0, 0, fw, fh, 10, 10, 160, 160);
   } else {
     rCtx.save();
     rCtx.translate(90, 140);
     rCtx.scale(0.6, 0.6);
-    renderProceduralImpostor(rCtx, document.getElementById('healthColor').value, 'idle');
+    renderProceduralImpostor(rCtx, char.healthColor || '#ffdd00', 'idle');
     rCtx.restore();
   }
 
@@ -822,7 +1067,7 @@ async function generateCurrencyIconBlob() {
   return new Promise(resolve => cCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 17. .IMP PROJECT SAVE / LOAD ENGINE
+// 17. .IMP PROJECT SERIALIZATION (Full Roster + Node Graph)
 function imageToBase64(img) {
   if (!img) return null;
   const c = document.createElement('canvas');
@@ -843,41 +1088,44 @@ function base64ToImage(b64) {
 }
 
 async function saveImpProject() {
-  const skinId = document.getElementById('skinId').value || 'custom_bf';
+  const primaryChar = state.characters[0] || {};
+  const skinId = primaryChar.skinId || 'custom_bf';
+
+  const serializedCharacters = state.characters.map(c => ({
+    skinId: c.skinId,
+    skinDisplayName: c.skinDisplayName,
+    charScale: c.charScale,
+    stageOffsetX: c.stageOffsetX,
+    stageOffsetY: c.stageOffsetY,
+    healthColor: c.healthColor,
+    cols: c.cols,
+    rows: c.rows,
+    hatAnchor: c.hatAnchor,
+    camAnchor: c.camAnchor,
+    spriteImageBase64: imageToBase64(c.spriteImage),
+    customNodeRenderBase64: imageToBase64(c.customNodeRenderImage),
+    iconNormal: imageToBase64(c.icons.normal),
+    iconLose: imageToBase64(c.icons.lose),
+    iconWin: imageToBase64(c.icons.win)
+  }));
 
   const projectData = {
     format: "VS_IMPOSTOR_STUDIO_PROJECT",
-    version: "1.2",
+    version: "2.0",
     savedAt: new Date().toISOString(),
     config: {
       mode: state.mode,
-      skinId: document.getElementById('skinId').value,
-      skinDisplayName: document.getElementById('skinDisplayName').value,
-      charScale: document.getElementById('charScale').value,
-      stageOffsetX: document.getElementById('stageOffsetX').value,
-      stageOffsetY: document.getElementById('stageOffsetY').value,
       animFps: document.getElementById('animFps').value,
       danceEverySelect: document.getElementById('danceEverySelect').value,
       singDurationInput: document.getElementById('singDurationInput').value,
       idleIndicesInput: document.getElementById('idleIndicesInput').value,
-      healthColor: document.getElementById('healthColor').value,
       antialiasSelect: document.getElementById('antialiasSelect').value,
-      gridCols: state.cols,
-      gridRows: state.rows,
       currencyMode: document.getElementById('currencyMode').value,
       cubeTitle: document.getElementById('cubeTitle').value,
-      nodeCostInput: document.getElementById('nodeCostInput').value,
-      hatAnchor: state.hatAnchor,
-      camAnchor: state.camAnchor
+      customBannerBase64: imageToBase64(state.customBannerImage)
     },
-    images: {
-      spriteImage: imageToBase64(state.spriteImage),
-      customBannerImage: imageToBase64(state.customBannerImage),
-      customNodeRenderImage: imageToBase64(state.customNodeRenderImage),
-      iconNormal: imageToBase64(state.icons.normal),
-      iconLose: imageToBase64(state.icons.lose),
-      iconWin: imageToBase64(state.icons.win)
-    }
+    characters: serializedCharacters,
+    cosmicubeNodes: state.cosmicubeNodes
   };
 
   const jsonString = JSON.stringify(projectData, null, 2);
@@ -901,56 +1149,53 @@ async function loadImpProject(e) {
         return;
       }
 
-      const cfg = data.config;
-      document.getElementById('skinId').value = cfg.skinId || 'custom_bf';
-      document.getElementById('skinDisplayName').value = cfg.skinDisplayName || 'Custom Character';
-      document.getElementById('charScale').value = cfg.charScale || 1.75;
-      document.getElementById('stageOffsetX').value = cfg.stageOffsetX || 0;
-      document.getElementById('stageOffsetY').value = cfg.stageOffsetY || 400;
+      const cfg = data.config || {};
       if (cfg.animFps) document.getElementById('animFps').value = cfg.animFps;
       if (cfg.danceEverySelect) document.getElementById('danceEverySelect').value = cfg.danceEverySelect;
       if (cfg.singDurationInput) document.getElementById('singDurationInput').value = cfg.singDurationInput;
       if (cfg.idleIndicesInput) document.getElementById('idleIndicesInput').value = cfg.idleIndicesInput;
+      if (cfg.antialiasSelect) document.getElementById('antialiasSelect').value = cfg.antialiasSelect;
+      if (cfg.currencyMode) document.getElementById('currencyMode').value = cfg.currencyMode;
+      if (cfg.cubeTitle) document.getElementById('cubeTitle').value = cfg.cubeTitle;
 
-      document.getElementById('healthColor').value = cfg.healthColor || '#ffdd00';
-      document.getElementById('antialiasSelect').value = cfg.antialiasSelect || 'true';
-      document.getElementById('gridCols').value = cfg.gridCols || 5;
-      document.getElementById('gridRows').value = cfg.gridRows || 1;
-      document.getElementById('currencyMode').value = cfg.currencyMode || 'beans';
-      document.getElementById('cubeTitle').value = cfg.cubeTitle || 'Custom Cube';
-      document.getElementById('nodeCostInput').value = cfg.nodeCostInput || 150;
-
-      state.mode = cfg.mode || 'upload';
-      if (document.getElementById('slicerModeSelect')) {
-        document.getElementById('slicerModeSelect').value = state.mode;
+      if (cfg.customBannerBase64) {
+        state.customBannerImage = await base64ToImage(cfg.customBannerBase64);
       }
 
-      state.cols = parseInt(cfg.gridCols) || 5;
-      state.rows = parseInt(cfg.gridRows) || 1;
-      state.hatAnchor = cfg.hatAnchor || { x: 0, y: -90 };
-      state.camAnchor = cfg.camAnchor || { x: 100, y: -100 };
-
-      document.getElementById('hatCoords').innerText = `${state.hatAnchor.x}, ${state.hatAnchor.y}`;
-      document.getElementById('camCoords').innerText = `${state.camAnchor.x}, ${state.camAnchor.y}`;
-
-      if (data.images) {
-        state.spriteImage = await base64ToImage(data.images.spriteImage);
-        state.customBannerImage = await base64ToImage(data.images.customBannerImage);
-        state.customNodeRenderImage = await base64ToImage(data.images.customNodeRenderImage);
-        state.icons.normal = await base64ToImage(data.images.iconNormal);
-        state.icons.lose = await base64ToImage(data.images.iconLose);
-        state.icons.win = await base64ToImage(data.images.iconWin);
-
-        if (state.icons.normal) document.getElementById('iconNormalStatus').innerText = 'Loaded from .imp';
-        if (state.icons.lose) document.getElementById('iconLoseStatus').innerText = 'Loaded from .imp';
-        if (state.icons.win) document.getElementById('iconWinStatus').innerText = 'Loaded from .imp';
+      // Rehydrate Characters Roster
+      if (data.characters && data.characters.length > 0) {
+        state.characters = await Promise.all(data.characters.map(async c => ({
+          skinId: c.skinId || 'custom_bf',
+          skinDisplayName: c.skinDisplayName || 'Custom Character',
+          charScale: c.charScale || 1.75,
+          stageOffsetX: c.stageOffsetX || 0,
+          stageOffsetY: c.stageOffsetY || 400,
+          healthColor: c.healthColor || '#ffdd00',
+          cols: c.cols || 5,
+          rows: c.rows || 1,
+          hatAnchor: c.hatAnchor || { x: 0, y: -90 },
+          camAnchor: c.camAnchor || { x: 100, y: -100 },
+          rawSpriteFile: null,
+          spriteImage: await base64ToImage(c.spriteImageBase64),
+          customNodeRenderImage: await base64ToImage(c.customNodeRenderBase64),
+          icons: {
+            normal: await base64ToImage(c.iconNormal),
+            lose: await base64ToImage(c.iconLose),
+            win: await base64ToImage(c.iconWin)
+          }
+        })));
       }
 
-      syncSkinDisplayName();
+      // Rehydrate Cosmicube Nodes
+      if (data.cosmicubeNodes && data.cosmicubeNodes.length > 0) {
+        state.cosmicubeNodes = data.cosmicubeNodes;
+      }
+
+      selectCharacter(0);
       syncCubeTitle();
-      updateSlicerMap();
-      drawCharacter();
-      alert(`Project "${cfg.skinDisplayName}" (.imp) loaded successfully!`);
+      renderRosterTabs();
+      renderDraggableNodeBoard();
+      alert(`Project (.imp) with ${state.characters.length} character(s) loaded successfully!`);
     } catch (err) {
       alert("Error reading .imp file: " + err.message);
     }
@@ -967,37 +1212,28 @@ window.addEventListener('drop', (e) => {
   }
 });
 
-// 18. MULTI-DIRECTORY BUNDLER (.ZIP) WITH FIXED BEAT PACING
+// 18. MULTI-CHARACTER & MULTI-NODE BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
-  const rawId = document.getElementById('skinId').value || 'custom_bf';
-  const skinId = rawId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  const skinDisplayName = document.getElementById('skinDisplayName').value || 'Custom Boyfriend';
-  const cubeTitle = document.getElementById('cubeTitle').value || 'Star Crewmate Cube';
+  const primaryChar = state.characters[0] || {};
+  const cubeTitle = document.getElementById('cubeTitle').value || 'Custom Cube';
   const cubeId = cubeTitle.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-  const scale = parseFloat(document.getElementById('charScale').value) || 1.75;
-  const bodyColor = document.getElementById('healthColor').value;
-  const cost = parseInt(document.getElementById('nodeCostInput').value) || 150;
-  
+  const bodyColor = primaryChar.healthColor || '#ff3344';
+
   const isCustomCurrency = document.getElementById('currencyMode').value === 'custom';
   const currencyType = isCustomCurrency ? 'starcoins' : 'beans';
-
-  const offsetX = parseInt(document.getElementById('stageOffsetX').value) || 0;
-  const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 400;
 
   const fps = parseInt(document.getElementById('animFps').value) || 24;
   const danceEvery = parseInt(document.getElementById('danceEverySelect').value) || 2;
   const singDuration = parseInt(document.getElementById('singDurationInput').value) || 6;
-
-  // Parse user's custom idle sequence indices (e.g. 0, 0, 1, 1, 2, 2, 3, 3)
   const idleIndicesRaw = document.getElementById('idleIndicesInput').value;
   const parsedIdleIndices = idleIndicesRaw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
 
-  // A. Metadata
+  // A. Engine Metadata
   const metaData = {
-    name: skinId,
+    name: primaryChar.skinId,
     title: cubeTitle,
-    description: "Custom Playable Boyfriend Skin & Cosmicube for VS Impostor V4 Legacy",
+    description: `Mod pack featuring ${state.characters.length} playable character(s) and Cosmicube.`,
     author: "Impostor Modder",
     version: "1.0.0",
     mod_version: "1.0.0",
@@ -1009,108 +1245,119 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. DUAL-ENGINE CHARACTER SCHEMA (CRUCIAL: looped: false on idle so it doesn't vibrate!)
-  const charConfigData = {
-    renderType: "sparrow",
-    version: "1.0.1",
-    name: skinId,
-    assetPath: `characters/${skinId}`,
-    danceEvery: danceEvery,
-    dance_every: danceEvery,
-    singTime: singDuration,
-    sing_duration: singDuration,
-    flipX: true,
-    flip_x: true,
-    isPixel: document.getElementById('antialiasSelect').value === 'false',
-    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
-    startingAnimation: "idle",
-    healthIcon: {
-      id: skinId,
-      isPixel: false
-    },
-    image: `characters/${skinId}`,
-    position: [offsetX, offsetY],
-    offsets: [offsetX, offsetY],
-    camera_position: [state.camAnchor.x, state.camAnchor.y],
-    cameraOffsets: [state.camAnchor.x, state.camAnchor.y],
-    hat_position: [state.hatAnchor.x, state.hatAnchor.y],
-    healthicon: skinId,
-    scale: scale,
-    healthbar_colors: [255, 221, 0],
+  // B. Cosmicube Header
+  const cubeHeaderString = JSON.stringify({
+    title: cubeTitle.toUpperCase(),
+    currency: currencyType
+  }, null, 2);
 
-    // CRITICAL: looped: false on Idle prevents the hyper-fast infinite vibration!
-    animations: [
-      { 
-        name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], 
-        frameRate: fps, fps: fps, 
-        looped: false, loop: false, // Must be FALSE! In FNF, Idle is triggered by the music beat!
-        indices: (state.mode === 'animated_template') ? parsedIdleIndices : [], 
-        frameIndices: (state.mode === 'animated_template') ? parsedIdleIndices : [] 
-      },
-      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "hey", anim: "hey", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "taunt", anim: "taunt", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] }
-    ]
+  const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
+  const currencyBlob = isCustomCurrency ? await generateCurrencyIconBlob() : null;
+  const primaryIconBlob = await generateStitchedIconBlobForChar(primaryChar);
+
+  // Common Multi-Directory Injector
+  const injectTarget = (target) => {
+    target.file("meta.json", metaString);
+    target.file("_polymod_meta.json", metaString);
+    target.file("icon.png", primaryIconBlob);
+
+    // Cosmicube Header
+    target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
+
+    // Slide Banner
+    target.folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
+    target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
+
+    if (isCustomCurrency) {
+      target.folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
+      target.folder("shared").folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
+    }
   };
-  const charConfigString = JSON.stringify(charConfigData, null, 2);
 
-  // C. Spritesheet Image Data & XML
-  let spriteBlob;
-  let frameW = 300, frameH = 240;
-  let cols = state.cols, rows = state.rows;
+  injectTarget(zip);
+  injectTarget(zip.folder(primaryChar.skinId));
 
-  if (state.spriteImage) {
-    frameW = Math.floor(state.spriteImage.width / state.cols);
-    frameH = Math.floor(state.spriteImage.height / state.rows);
-    const c = document.createElement('canvas');
-    c.width = state.spriteImage.width;
-    c.height = state.spriteImage.height;
-    c.getContext('2d').drawImage(state.spriteImage, 0, 0);
-    spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
-  } else {
-    const c = document.createElement('canvas');
-    c.width = 1500; c.height = 260;
-    const sCtx = c.getContext('2d');
-    const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
-    poses.forEach((pose, i) => {
-      sCtx.save();
-      sCtx.translate(i * 300 + 150, 260 * 0.88);
-      renderProceduralImpostor(sCtx, bodyColor, pose);
-      sCtx.restore();
-    });
-    spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
-    cols = 5; rows = 1; frameW = 300; frameH = 260;
-  }
+  // C. COMPILE ALL CHARACTERS IN ROSTER
+  for (const char of state.characters) {
+    const sId = char.skinId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const scale = parseFloat(char.charScale) || 1.75;
 
-  // D. Fully Padded Sparrow XML Atlas
-  let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
-  if (state.mode === 'animated_template') {
-    const animMap = [
-      { name: "idle", count: 4 },
-      { name: "singLEFT", count: 2 },
-      { name: "singDOWN", count: 2 },
-      { name: "singUP", count: 2 },
-      { name: "singRIGHT", count: 2 },
-      { name: "peace", count: 2 }
-    ];
-    let frameIdx = 0;
-    animMap.forEach(anim => {
-      for (let i = 0; i < anim.count; i++) {
-        const x = (frameIdx % cols) * frameW;
-        const y = Math.floor(frameIdx / cols) * frameH;
-        xmlString += `  <SubTexture name="${anim.name}${String(i).padStart(4, '0')}" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
-        frameIdx++;
-      }
-    });
-  } else {
+    // Character Config JSON
+    const charConfigData = {
+      renderType: "sparrow",
+      version: "1.0.1",
+      name: sId,
+      assetPath: `characters/${sId}`,
+      danceEvery: danceEvery,
+      dance_every: danceEvery,
+      singTime: singDuration,
+      sing_duration: singDuration,
+      flipX: true,
+      flip_x: true,
+      isPixel: document.getElementById('antialiasSelect').value === 'false',
+      no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
+      startingAnimation: "idle",
+      healthIcon: { id: sId, isPixel: false },
+      image: `characters/${sId}`,
+      position: [char.stageOffsetX, char.stageOffsetY],
+      offsets: [char.stageOffsetX, char.stageOffsetY],
+      camera_position: [char.camAnchor.x, char.camAnchor.y],
+      cameraOffsets: [char.camAnchor.x, char.camAnchor.y],
+      hat_position: [char.hatAnchor.x, char.hatAnchor.y],
+      healthicon: sId,
+      scale: scale,
+      healthbar_colors: [255, 221, 0],
+
+      animations: [
+        { 
+          name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], 
+          frameRate: fps, fps: fps, looped: false, loop: false, 
+          indices: (state.mode === 'animated_template') ? parsedIdleIndices : [], 
+          frameIndices: (state.mode === 'animated_template') ? parsedIdleIndices : [] 
+        },
+        { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "hey", anim: "hey", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+        { name: "taunt", anim: "taunt", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] }
+      ]
+    };
+    const charConfigString = JSON.stringify(charConfigData, null, 2);
+
+    // Spritesheet PNG & XML
+    let spriteBlob;
+    let frameW = 300, frameH = 240;
+    let cols = char.cols, rows = char.rows;
+
+    if (char.spriteImage) {
+      frameW = Math.floor(char.spriteImage.width / char.cols);
+      frameH = Math.floor(char.spriteImage.height / char.rows);
+      const c = document.createElement('canvas');
+      c.width = char.spriteImage.width; c.height = char.spriteImage.height;
+      c.getContext('2d').drawImage(char.spriteImage, 0, 0);
+      spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
+    } else {
+      const c = document.createElement('canvas');
+      c.width = 1500; c.height = 260;
+      const sCtx = c.getContext('2d');
+      const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
+      poses.forEach((pose, i) => {
+        sCtx.save();
+        sCtx.translate(i * 300 + 150, 260 * 0.88);
+        renderProceduralImpostor(sCtx, char.healthColor || '#ff3344', pose);
+        sCtx.restore();
+      });
+      spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
+      cols = 5; rows = 1; frameW = 300; frameH = 260;
+    }
+
+    let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${sId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
     const xmlPoseKeys = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
     for (let i = 0; i < cols * rows; i++) {
       const aName = xmlPoseKeys[i] || "idle";
@@ -1121,75 +1368,62 @@ async function bundleModZip() {
     if (cols * rows <= 5) {
       xmlString += `  <SubTexture name="peace0000" x="0" y="0" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
     }
+    xmlString += `</TextureAtlas>`;
+
+    const charIconBlob = await generateStitchedIconBlobForChar(char);
+    const charNodeRenderBlob = await generateNodeRenderItemBlobForChar(char);
+
+    // Multi-Directory Injection for Character
+    const injectChar = (t) => {
+      t.folder("characters").file(`${sId}.json`, charConfigString);
+      t.folder("data").folder("characters").file(`${sId}.json`, charConfigString);
+
+      t.folder("images").folder("characters").file(`${sId}.png`, spriteBlob);
+      t.folder("images").folder("characters").file(`${sId}.xml`, xmlString);
+      t.folder("shared").folder("images").folder("characters").file(`${sId}.png`, spriteBlob);
+      t.folder("shared").folder("images").folder("characters").file(`${sId}.xml`, xmlString);
+
+      t.folder("images").folder("icons").file(`icon-${sId}.png`, charIconBlob);
+      t.folder("shared").folder("images").folder("icons").file(`icon-${sId}.png`, charIconBlob);
+
+      t.folder("images").folder("menu").folder("cosmicube").folder("items").file(`${sId}.png`, charNodeRenderBlob);
+      t.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("items").file(`${sId}.png`, charNodeRenderBlob);
+    };
+
+    injectChar(zip);
+    injectChar(zip.folder(primaryChar.skinId));
   }
-  xmlString += `</TextureAtlas>`;
 
-  // E. Verified Cosmicube Header & Item Node
-  const cubeHeaderString = JSON.stringify({
-    title: cubeTitle.toUpperCase(),
-    currency: currencyType
-  }, null, 2);
+  // D. COMPILE ALL COSMICUBE BRANCH NODES
+  for (const node of state.cosmicubeNodes) {
+    if (node.id === 'root') continue;
 
-  const itemNodeString = JSON.stringify({
-    type: "playerSkin",
-    price: cost,
-    title: skinDisplayName,
-    hint: "Cosmicube Exclusive",
-    description: `Play as ${skinDisplayName} in any song!`,
-    node: {
-      direction: "north",
-      parent: "root"
-    }
-  }, null, 2);
+    const nodeConfig = {
+      type: node.type || "playerSkin",
+      price: node.cost || 0,
+      title: node.title,
+      hint: "Cosmicube Exclusive",
+      description: `Unlock ${node.title} in the Cosmicube!`,
+      node: {
+        direction: node.direction || "north",
+        parent: node.parent || "root"
+      }
+    };
+    const nodeString = JSON.stringify(nodeConfig, null, 2);
 
-  // F. Graphics Blobs
-  const iconBlob = await generateStitchedIconBlob();
-  const bannerBlob = await generateCosmicubeBanner(cubeTitle, bodyColor);
-  const nodeRenderBlob = await generateNodeRenderItemBlob();
-  const currencyBlob = isCustomCurrency ? await generateCurrencyIconBlob() : null;
+    zip.folder("data").folder("cosmicube").folder(cubeId).file(`${node.id}.json`, nodeString);
+    zip.folder(primaryChar.skinId).folder("data").folder("cosmicube").folder(cubeId).file(`${node.id}.json`, nodeString);
+  }
 
-  // G. Inject into all verified paths
-  const injectAll = (target) => {
-    target.file("meta.json", metaString);
-    target.file("_polymod_meta.json", metaString);
-    target.file("icon.png", iconBlob);
-
-    target.folder("characters").file(`${skinId}.json`, charConfigString);
-    target.folder("data").folder("characters").file(`${skinId}.json`, charConfigString);
-
-    target.folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
-    target.folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
-    target.folder("shared").folder("images").folder("characters").file(`${skinId}.png`, spriteBlob);
-    target.folder("shared").folder("images").folder("characters").file(`${skinId}.xml`, xmlString);
-
-    target.folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
-    target.folder("shared").folder("images").folder("icons").file(`icon-${skinId}.png`, iconBlob);
-
-    target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
-    target.folder("data").folder("cosmicube").folder(cubeId).file(`${skinId}.json`, itemNodeString);
-
-    target.folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
-    target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
-
-    target.folder("images").folder("menu").folder("cosmicube").folder("items").file(`${skinId}.png`, nodeRenderBlob);
-    target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("items").file(`${skinId}.png`, nodeRenderBlob);
-
-    if (isCustomCurrency) {
-      target.folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
-      target.folder("shared").folder("images").folder("currency").file(`${currencyType}.png`, currencyBlob);
-    }
-  };
-
-  injectAll(zip);
-  injectAll(zip.folder(skinId));
-
+  // Download Bundle
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
-  downloadLink.download = `${skinId}_v4_legacy_bundle.zip`;
+  downloadLink.download = `${primaryChar.skinId}_v4_legacy_bundle.zip`;
   downloadLink.click();
 }
 
 // Initial draw calls
-updateSlicerMap();
-drawCharacter();
+renderRosterTabs();
+selectCharacter(0);
+renderDraggableNodeBoard();
