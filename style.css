@@ -114,7 +114,7 @@ header {
 
 .tab-view { display: none; width: 100%; height: 100%; }
 .tab-view.active { display: grid; }
-.grid-skin { grid-template-columns: 320px 1fr 310px; }
+.grid-skin { grid-template-columns: 330px 1fr 310px; }
 .grid-cosmic { grid-template-columns: 310px 1fr 310px; }
 
 .panel { padding: 16px; background: rgba(0, 0, 0, 0.45); border-right: 1px solid var(--card-border); overflow-y: auto; }
@@ -193,7 +193,48 @@ header {
   box-shadow: 0 0 8px var(--red-glow);
 }
 
-/* Slicer Box (No Left-Side Cutoff!) */
+/* Row-by-Row Animation Manager UI */
+.anim-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.anim-row-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.anim-row-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anim-row-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.anim-row-stepper span {
+  font-size: 0.72rem;
+  font-family: monospace;
+  color: var(--bean-yellow);
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Slicer Box */
 .slice-preview-header {
   display: flex;
   justify-content: space-between;
@@ -204,23 +245,22 @@ header {
 
 .slicer-container {
   width: 100%;
-  height: 140px;
+  height: 180px;
   background: #000;
   border: 1.5px solid var(--neon-slice);
   border-radius: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: auto;
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: flex-start; /* CRITICAL: flex-start fixes the left-side cutoff! */
+  align-items: flex-start;
+  justify-content: flex-start; /* CRITICAL: Fixes left-side overflow clipping */
   padding: 6px;
   box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.15);
 }
 
-/* Custom Sleek Neon Scrollbar */
 .slicer-container::-webkit-scrollbar {
   height: 8px;
+  width: 8px;
 }
 .slicer-container::-webkit-scrollbar-track {
   background: #080a10;
@@ -234,9 +274,7 @@ header {
 
 #slicerCanvas {
   display: block;
-  margin: auto 0;
   image-rendering: pixelated;
-  transition: transform 0.2s ease;
 }
 
 /* Custom Frame Scrubber Slider */
