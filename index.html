@@ -215,12 +215,12 @@
         </div>
       </div>
 
-      <!-- Right Panel: Calibration & Config -->
+      <!-- Right Panel: Calibration & Frame Timing Editor -->
       <div class="panel right">
         <div class="panel-header">Character Calibration</div>
         
         <div class="form-group">
-          <label>Skin Internal ID (Strict Lowercase)</label>
+          <label>Skin Internal ID</label>
           <input type="text" id="skinId" value="bf_star_impostor" />
         </div>
 
@@ -247,6 +247,35 @@
             <label>Stage Offset Y (Floor)</label>
             <input type="number" id="stageOffsetY" value="400" />
           </div>
+        </div>
+
+        <!-- Frame Timing & Pacing Editor -->
+        <div class="panel-header" style="margin-top:16px;">Animation Pacing & Timing</div>
+        
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Anim FPS</label>
+            <input type="number" id="animFps" value="24" min="6" max="60" oninput="drawCharacter()" />
+          </div>
+          <div class="form-group">
+            <label>Idle Dance Bop</label>
+            <select id="danceEverySelect">
+              <option value="2">Every 2 Beats (Standard)</option>
+              <option value="1">Every 1 Beat (Fast Songs)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Sing Pose Hold Duration (Beats)</label>
+          <input type="number" id="singDurationInput" value="6" min="2" max="15" />
+          <span style="font-size:0.65rem; color:var(--visor-cyan);">How long poses stay held before returning to Idle</span>
+        </div>
+
+        <div class="form-group">
+          <label>Idle Frame Pacing (Indices Sequence)</label>
+          <input type="text" id="idleIndicesInput" value="0, 0, 1, 1, 2, 2, 3, 3" />
+          <span style="font-size:0.65rem; color:var(--text-dim);">Duplicates frames to hold/smooth poses</span>
         </div>
 
         <div class="form-group">
