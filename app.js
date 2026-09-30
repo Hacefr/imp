@@ -1,18 +1,20 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
  * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
- * Includes complete .imp Project Save/Load Engine, Animated Templates, and Stage Simulators.
+ * Includes complete .imp Project Save/Load Engine, Frame Timing & Pacing Calibrator.
  */
 
 // 1. GLOBAL STATE
 const state = {
-  mode: 'upload', // 'upload', 'animated_template', 'static_template', 'loose_pngs'
+  mode: 'upload',
   rawSpriteFile: null,
   spriteImage: null,
   cols: 5,
   rows: 1,
   activePose: 'idle',
   idleFrameTick: 0,
+  isSinging: false,
+  singTimeout: null,
   customBannerImage: null,
   customNodeRenderImage: null,
   icons: {
@@ -89,7 +91,7 @@ function switchTab(tabId) {
   document.getElementById('subTitle').innerText = titles[tabId];
 }
 
-// 4. ANIMATED SPRITESHEET GENERATOR (Template: 14 Frames)
+// 4. ANIMATED SPRITESHEET GENERATOR (14 Frames)
 async function generateAnimatedTemplateImage(bodyColor) {
   const sheet = document.createElement('canvas');
   const fw = 300, fh = 260;
@@ -106,7 +108,7 @@ async function generateAnimatedTemplateImage(bodyColor) {
     sCtx.restore();
   });
 
-  // Frame 4-5: Left Pose (Strike + Hold)
+  // Frame 4-5: Left Pose
   [0, 1].forEach((sub, i) => {
     sCtx.save();
     sCtx.translate((4 + i) * fw + fw / 2, fh * 0.88);
@@ -120,7 +122,7 @@ async function generateAnimatedTemplateImage(bodyColor) {
   renderProceduralImpostor(sCtx, bodyColor, 'singDOWN', 0);
   sCtx.restore();
 
-  // Row 2: Down Pose 2, Up Pose (2), Right Pose (2), Hey (2)
+  // Row 2
   const row2Poses = ['singDOWN', 'singUP', 'singUP', 'singRIGHT', 'singRIGHT', 'hey', 'hey'];
   row2Poses.forEach((pose, i) => {
     sCtx.save();
@@ -158,7 +160,7 @@ function switchSlicerMode(mode) {
     state.rows = 1;
     document.getElementById('gridCols').value = 5;
     document.getElementById('gridRows').value = 1;
-    state.spriteImage = null; // Uses default fallback
+    state.spriteImage = null;
     updateSlicerMap();
     autoCalibrateScale();
     drawCharacter();
@@ -233,7 +235,7 @@ function updateSlicerMap() {
   updateNodeRenderIconPreview();
 }
 
-// 7. STAGE SIMULATOR (WITH BACKGROUNDS & SMOOTH 24FPS BOB)
+// 7. STAGE SIMULATOR
 const charCanvas = document.getElementById('charCanvas');
 const ctx = charCanvas.getContext('2d');
 
@@ -243,48 +245,40 @@ function drawStageBackground(c, type) {
   const groundY = h * 0.78;
 
   if (type === 'mira') {
-    // Mira HQ Greenhouse
     const skyGrad = c.createLinearGradient(0, 0, 0, groundY);
     skyGrad.addColorStop(0, '#7dd3fc');
     skyGrad.addColorStop(1, '#e0f2fe');
     c.fillStyle = skyGrad;
     c.fillRect(0, 0, w, groundY);
 
-    // Glass flower tube
     c.fillStyle = 'rgba(255,255,255,0.4)';
     c.fillRect(w * 0.35, 30, w * 0.3, groundY - 30);
     c.strokeStyle = '#0284c7';
     c.lineWidth = 3;
     c.strokeRect(w * 0.35, 30, w * 0.3, groundY - 30);
 
-    // Floor Carpet
     c.fillStyle = '#16a34a';
     c.fillRect(0, groundY, w, h - groundY);
   } else if (type === 'polus') {
-    // Polus Snowy Night
     c.fillStyle = '#0f172a';
     c.fillRect(0, 0, w, groundY);
     c.fillStyle = '#e2e8f0';
-    c.fillRect(0, groundY, w, h - groundY); // Snow ground
+    c.fillRect(0, groundY, w, h - groundY);
   } else if (type === 'airship') {
-    // Airship Meeting Room
     c.fillStyle = '#991b1b';
     c.fillRect(0, 0, w, groundY);
     c.fillStyle = '#374151';
     c.fillRect(0, groundY, w, h - groundY);
   } else if (type === 'defeat') {
-    // Defeat Mode
     c.fillStyle = '#000000';
     c.fillRect(0, 0, w, groundY);
     c.fillStyle = '#b91c1c';
     c.fillRect(0, groundY, w, h - groundY);
   } else {
-    // Clean Minimal Grid
     c.fillStyle = 'rgba(0,0,0,0.5)';
     c.fillRect(0, 0, w, h);
   }
 
-  // Carpet Ground Line
   c.strokeStyle = '#22c55e';
   c.lineWidth = 3;
   c.setLineDash([8, 6]);
@@ -316,7 +310,6 @@ function drawCharacter() {
     const frameW = state.spriteImage.width / state.cols;
     const frameH = state.spriteImage.height / state.rows;
     
-    // Support multi-frame looping for animated template
     let frameIndex = 0;
     if (state.mode === 'animated_template') {
       const animatedMap = {
@@ -347,7 +340,6 @@ function drawCharacter() {
   ctx.restore();
 }
 
-// Full Procedural Impostor with animation tick support
 function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   let offsetX = 0, offsetY = 0, rot = 0;
   if (pose === 'singLEFT')  { offsetX = -25; rot = -0.08; }
@@ -360,7 +352,6 @@ function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   c.translate(offsetX, offsetY);
   c.rotate(rot);
 
-  // Backpack on Right (+X)
   c.fillStyle = bodyColor;
   c.strokeStyle = '#000000';
   c.lineWidth = 8;
@@ -369,20 +360,17 @@ function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   c.fill();
   c.stroke();
 
-  // Main Body
   c.beginPath();
   c.roundRect(-70, -200 - squish * 10, 140, 200 + squish * 10, [70, 70, 25, 25]);
   c.fill();
   c.stroke();
 
-  // Visor on Left (-X) -> Faces Left toward Opponent & GF!
   c.fillStyle = '#7feaff';
   c.beginPath();
   c.roundRect(-60, -165 - squish * 10, 80, 48, 24);
   c.fill();
   c.stroke();
 
-  // Visor Highlight
   c.fillStyle = '#ffffff';
   c.beginPath();
   c.roundRect(-45, -158 - squish * 10, 50, 14, 7);
@@ -391,21 +379,23 @@ function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
   c.restore();
 }
 
-// 24 FPS Idle Bobbing Animation Loop
-let lastTime = 0;
+// 8. SIMULATED BEAT CONDUCTOR (Bops once per beat instead of vibrating endlessly!)
+let beatTimer = 0;
 function stageAnimationLoop(time) {
-  if (time - lastTime > 120) { // ~8-10 FPS frame pacing for retro FNF bobbing
-    state.idleFrameTick++;
-    lastTime = time;
-    if (state.mode === 'animated_template') {
-      drawCharacter();
+  if (time - beatTimer > 500) { // ~120 BPM tempo
+    beatTimer = time;
+    if (!state.isSinging) {
+      state.idleFrameTick++;
+      if (state.mode === 'animated_template') {
+        drawCharacter();
+      }
     }
   }
   requestAnimationFrame(stageAnimationLoop);
 }
 requestAnimationFrame(stageAnimationLoop);
 
-// 8. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
+// 9. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
 function autoCalibrateScale() {
   let currentHeight = 240;
   if (state.spriteImage) {
@@ -416,7 +406,7 @@ function autoCalibrateScale() {
   drawCharacter();
 }
 
-// 9. FILE UPLOAD HANDLERS
+// 10. FILE UPLOADS
 function handleSpriteUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -443,7 +433,7 @@ function updateGridSlices() {
   drawCharacter();
 }
 
-// 10. "IMAGE TO SPRITES" (Loose PNGs Auto-Packer)
+// 11. LOOSE PNGs AUTO-PACKER
 async function handleLooseFrame(pose, e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -494,7 +484,7 @@ function stitchLooseFramesIntoSprite() {
   finalImg.src = sheetCanvas.toDataURL('image/png');
 }
 
-// 11. 1-CLICK 3-STATE HEALTH ICON AUTO-GENERATOR
+// 12. 1-CLICK 3-STATE ICONS
 async function autoGenerateIconsFromIdle() {
   const baseCanvas = document.createElement('canvas');
   baseCanvas.width = 150;
@@ -513,13 +503,11 @@ async function autoGenerateIconsFromIdle() {
     bCtx.restore();
   }
 
-  // 1. Normal
   const imgNormal = new Image();
   imgNormal.src = baseCanvas.toDataURL('image/png');
   state.icons.normal = imgNormal;
   document.getElementById('iconNormalStatus').innerText = 'Auto-Generated';
 
-  // 2. Lose (Red with jagged crack lines)
   const loseCanvas = document.createElement('canvas');
   loseCanvas.width = 150;
   loseCanvas.height = 150;
@@ -539,7 +527,6 @@ async function autoGenerateIconsFromIdle() {
   state.icons.lose = imgLose;
   document.getElementById('iconLoseStatus').innerText = 'Auto-Generated';
 
-  // 3. Win (Gold glow with sparkles)
   const winCanvas = document.createElement('canvas');
   winCanvas.width = 150;
   winCanvas.height = 150;
@@ -630,7 +617,7 @@ function updateNodeRenderIconPreview() {
   }
 }
 
-// 12. KEYBOARD LISTENER
+// 13. KEYBOARD LISTENER (WITH SING HOLD DURATION)
 window.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   let newPose = null;
@@ -641,20 +628,23 @@ window.addEventListener('keydown', (e) => {
   if (key === 'arrowright' || key === 'd') newPose = 'singRIGHT';
   if (key === ' ' || key === 'shift') newPose = 'hey';
 
-  if (newPose && state.activePose !== newPose) {
+  if (newPose) {
     state.activePose = newPose;
+    state.isSinging = true;
     document.getElementById('activePoseName').innerText = newPose;
     drawCharacter();
+
+    clearTimeout(state.singTimeout);
+    state.singTimeout = setTimeout(() => {
+      state.isSinging = false;
+      state.activePose = 'idle';
+      document.getElementById('activePoseName').innerText = 'idle';
+      drawCharacter();
+    }, 450); // Holds pose for note duration before returning to idle
   }
 });
 
-window.addEventListener('keyup', () => {
-  state.activePose = 'idle';
-  document.getElementById('activePoseName').innerText = 'idle';
-  drawCharacter();
-});
-
-// 13. DRAGGABLE ANCHORS
+// 14. DRAGGABLE ANCHORS
 function setupDraggableAnchor(elementId, coordDisplayId, stateTarget) {
   const el = document.getElementById(elementId);
   const container = document.getElementById('stageCanvasContainer');
@@ -688,7 +678,7 @@ document.getElementById('hatMarker').style.top = '22%';
 document.getElementById('camMarker').style.left = '58%';
 document.getElementById('camMarker').style.top = '45%';
 
-// 14. COSMICUBE SHOP & SYNC
+// 15. COSMICUBE SHOP & SYNC
 function syncSkinDisplayName() {
   const name = document.getElementById('skinDisplayName').value || 'Star Impostor';
   document.getElementById('nodeNameInput').value = name;
@@ -715,7 +705,7 @@ function toggleCurrency(mode) {
   document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
 }
 
-// 15. AUTOMATED 450x150 ICON STITCHER
+// 16. GRAPHICS GENERATORS
 async function generateStitchedIconBlob() {
   const offCanvas = document.createElement('canvas');
   offCanvas.width = 450;
@@ -723,7 +713,6 @@ async function generateStitchedIconBlob() {
   const oCtx = offCanvas.getContext('2d');
 
   const slots = [state.icons.normal, state.icons.lose, state.icons.win];
-
   slots.forEach((iconImg, i) => {
     const dx = i * 150;
     if (iconImg) {
@@ -737,16 +726,6 @@ async function generateStitchedIconBlob() {
       oCtx.strokeStyle = '#000000';
       oCtx.lineWidth = 6;
       oCtx.stroke();
-
-      if (i === 1) {
-        oCtx.strokeStyle = '#000000';
-        oCtx.lineWidth = 4;
-        oCtx.beginPath();
-        oCtx.moveTo(dx + 65, 45);
-        oCtx.lineTo(dx + 80, 75);
-        oCtx.lineTo(dx + 70, 105);
-        oCtx.stroke();
-      }
       oCtx.restore();
     }
   });
@@ -754,7 +733,6 @@ async function generateStitchedIconBlob() {
   return new Promise(resolve => offCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 16. AUTO-RESIZED CAROUSEL SLIDE BANNER (Guaranteed 380x210 card fit!)
 async function generateCosmicubeBanner(title, bodyColor) {
   const bCanvas = document.createElement('canvas');
   bCanvas.width = 380;
@@ -800,7 +778,6 @@ async function generateCosmicubeBanner(title, bodyColor) {
   return new Promise(resolve => bCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 17. COSMICUBE NODE ITEM RENDER
 async function generateNodeRenderItemBlob() {
   const rCanvas = document.createElement('canvas');
   rCanvas.width = 180;
@@ -824,7 +801,6 @@ async function generateNodeRenderItemBlob() {
   return new Promise(resolve => rCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 18. CUSTOM CURRENCY ICON GENERATOR
 async function generateCurrencyIconBlob() {
   const cCanvas = document.createElement('canvas');
   cCanvas.width = 64;
@@ -846,7 +822,7 @@ async function generateCurrencyIconBlob() {
   return new Promise(resolve => cCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 19. .IMP PROJECT SAVE / LOAD ENGINE
+// 17. .IMP PROJECT SAVE / LOAD ENGINE
 function imageToBase64(img) {
   if (!img) return null;
   const c = document.createElement('canvas');
@@ -871,7 +847,7 @@ async function saveImpProject() {
 
   const projectData = {
     format: "VS_IMPOSTOR_STUDIO_PROJECT",
-    version: "1.1",
+    version: "1.2",
     savedAt: new Date().toISOString(),
     config: {
       mode: state.mode,
@@ -880,6 +856,10 @@ async function saveImpProject() {
       charScale: document.getElementById('charScale').value,
       stageOffsetX: document.getElementById('stageOffsetX').value,
       stageOffsetY: document.getElementById('stageOffsetY').value,
+      animFps: document.getElementById('animFps').value,
+      danceEverySelect: document.getElementById('danceEverySelect').value,
+      singDurationInput: document.getElementById('singDurationInput').value,
+      idleIndicesInput: document.getElementById('idleIndicesInput').value,
       healthColor: document.getElementById('healthColor').value,
       antialiasSelect: document.getElementById('antialiasSelect').value,
       gridCols: state.cols,
@@ -927,6 +907,11 @@ async function loadImpProject(e) {
       document.getElementById('charScale').value = cfg.charScale || 1.75;
       document.getElementById('stageOffsetX').value = cfg.stageOffsetX || 0;
       document.getElementById('stageOffsetY').value = cfg.stageOffsetY || 400;
+      if (cfg.animFps) document.getElementById('animFps').value = cfg.animFps;
+      if (cfg.danceEverySelect) document.getElementById('danceEverySelect').value = cfg.danceEverySelect;
+      if (cfg.singDurationInput) document.getElementById('singDurationInput').value = cfg.singDurationInput;
+      if (cfg.idleIndicesInput) document.getElementById('idleIndicesInput').value = cfg.idleIndicesInput;
+
       document.getElementById('healthColor').value = cfg.healthColor || '#ffdd00';
       document.getElementById('antialiasSelect').value = cfg.antialiasSelect || 'true';
       document.getElementById('gridCols').value = cfg.gridCols || 5;
@@ -982,7 +967,7 @@ window.addEventListener('drop', (e) => {
   }
 });
 
-// 20. MULTI-DIRECTORY BUNDLER (.ZIP)
+// 18. MULTI-DIRECTORY BUNDLER (.ZIP) WITH FIXED BEAT PACING
 async function bundleModZip() {
   const zip = new JSZip();
   const rawId = document.getElementById('skinId').value || 'custom_bf';
@@ -1000,6 +985,14 @@ async function bundleModZip() {
   const offsetX = parseInt(document.getElementById('stageOffsetX').value) || 0;
   const offsetY = parseInt(document.getElementById('stageOffsetY').value) || 400;
 
+  const fps = parseInt(document.getElementById('animFps').value) || 24;
+  const danceEvery = parseInt(document.getElementById('danceEverySelect').value) || 2;
+  const singDuration = parseInt(document.getElementById('singDurationInput').value) || 6;
+
+  // Parse user's custom idle sequence indices (e.g. 0, 0, 1, 1, 2, 2, 3, 3)
+  const idleIndicesRaw = document.getElementById('idleIndicesInput').value;
+  const parsedIdleIndices = idleIndicesRaw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+
   // A. Metadata
   const metaData = {
     name: skinId,
@@ -1016,24 +1009,26 @@ async function bundleModZip() {
 
   const metaString = JSON.stringify(metaData, null, 2);
 
-  // B. DUAL-ENGINE CHARACTER SCHEMA (Codename + Psych)
+  // B. DUAL-ENGINE CHARACTER SCHEMA (CRUCIAL: looped: false on idle so it doesn't vibrate!)
   const charConfigData = {
     renderType: "sparrow",
     version: "1.0.1",
     name: skinId,
     assetPath: `characters/${skinId}`,
-    danceEvery: 2,
-    singTime: 6,
+    danceEvery: danceEvery,
+    dance_every: danceEvery,
+    singTime: singDuration,
+    sing_duration: singDuration,
     flipX: true,
+    flip_x: true,
     isPixel: document.getElementById('antialiasSelect').value === 'false',
+    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
     startingAnimation: "idle",
     healthIcon: {
       id: skinId,
       isPixel: false
     },
     image: `characters/${skinId}`,
-    flip_x: true,
-    no_antialiasing: document.getElementById('antialiasSelect').value === 'false',
     position: [offsetX, offsetY],
     offsets: [offsetX, offsetY],
     camera_position: [state.camAnchor.x, state.camAnchor.y],
@@ -1041,35 +1036,28 @@ async function bundleModZip() {
     hat_position: [state.hatAnchor.x, state.hatAnchor.y],
     healthicon: skinId,
     scale: scale,
-    sing_duration: 6,
     healthbar_colors: [255, 221, 0],
 
-    animations: (state.mode === 'animated_template') ? [
-      { name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, fps: 24, looped: true, loop: true, indices: [0, 1, 2, 3], frameIndices: [0, 1, 2, 3] },
-      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "hey", anim: "hey", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "peace", anim: "peace", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] },
-      { name: "taunt", anim: "taunt", prefix: "hey", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [0, 1], frameIndices: [0, 1] }
-    ] : [
-      { name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "hey", anim: "hey", prefix: "peace", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] },
-      { name: "taunt", anim: "taunt", prefix: "peace", offsets: [0, 0], frameRate: 24, fps: 24, looped: false, loop: false, indices: [], frameIndices: [] }
+    // CRITICAL: looped: false on Idle prevents the hyper-fast infinite vibration!
+    animations: [
+      { 
+        name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], 
+        frameRate: fps, fps: fps, 
+        looped: false, loop: false, // Must be FALSE! In FNF, Idle is triggered by the music beat!
+        indices: (state.mode === 'animated_template') ? parsedIdleIndices : [], 
+        frameIndices: (state.mode === 'animated_template') ? parsedIdleIndices : [] 
+      },
+      { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "hey", anim: "hey", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
+      { name: "taunt", anim: "taunt", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] }
     ]
   };
   const charConfigString = JSON.stringify(charConfigData, null, 2);
@@ -1088,7 +1076,6 @@ async function bundleModZip() {
     c.getContext('2d').drawImage(state.spriteImage, 0, 0);
     spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
   } else {
-    // Default 5-frame fallback
     const c = document.createElement('canvas');
     c.width = 1500; c.height = 260;
     const sCtx = c.getContext('2d');
@@ -1106,14 +1093,13 @@ async function bundleModZip() {
   // D. Fully Padded Sparrow XML Atlas
   let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${skinId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
   if (state.mode === 'animated_template') {
-    // 14 Frames mapping: idle (4), singLEFT (2), singDOWN (2), singUP (2), singRIGHT (2), hey (2)
     const animMap = [
       { name: "idle", count: 4 },
       { name: "singLEFT", count: 2 },
       { name: "singDOWN", count: 2 },
       { name: "singUP", count: 2 },
       { name: "singRIGHT", count: 2 },
-      { name: "hey", count: 2 }
+      { name: "peace", count: 2 }
     ];
     let frameIdx = 0;
     animMap.forEach(anim => {
@@ -1125,7 +1111,6 @@ async function bundleModZip() {
       }
     });
   } else {
-    // 5-6 Frame Mapping
     const xmlPoseKeys = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
     for (let i = 0; i < cols * rows; i++) {
       const aName = xmlPoseKeys[i] || "idle";
