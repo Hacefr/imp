@@ -75,26 +75,64 @@
     <!-- TAB 1: Skin Studio -->
     <div class="tab-view active grid-skin" id="view-skin">
       
-      <!-- Left Panel: Spritesheet Slicer & Icons -->
+      <!-- Left Panel: Spritesheet Slicer & Sourcing -->
       <div class="panel">
         <div class="panel-header">
           <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-          Labeled Spritesheet Slicer
+          Spritesheet Mode
         </div>
 
         <div class="form-group">
-          <label>Spritesheet (.png)</label>
-          <input type="file" id="spriteFileInput" accept=".png" onchange="handleSpriteUpload(event)" />
+          <label>Mode / Slicing Engine</label>
+          <select id="slicerModeSelect" onchange="switchSlicerMode(this.value)">
+            <option value="upload">Upload Custom Spritesheet (.png)</option>
+            <option value="animated_template">Template: 14-Frame Animated Impostor</option>
+            <option value="static_template">Template: 5-Frame Static Impostor</option>
+            <option value="loose_pngs">Drop Loose PNGs (Image-to-Sprite Packer)</option>
+          </select>
         </div>
 
-        <div class="grid-2">
+        <!-- Custom Upload Section -->
+        <div id="customUploadSection">
           <div class="form-group">
-            <label>Columns (Slices)</label>
-            <input type="number" id="gridCols" value="5" min="1" max="32" oninput="updateGridSlices()" />
+            <label>Spritesheet File (.png)</label>
+            <input type="file" id="spriteFileInput" accept=".png" onchange="handleSpriteUpload(event)" />
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Columns</label>
+              <input type="number" id="gridCols" value="5" min="1" max="32" oninput="updateGridSlices()" />
+            </div>
+            <div class="form-group">
+              <label>Rows</label>
+              <input type="number" id="gridRows" value="1" min="1" max="32" oninput="updateGridSlices()" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Loose PNGs Packer Section -->
+        <div id="loosePngsSection" style="display:none;">
+          <span style="font-size:0.68rem; color:var(--visor-cyan); display:block; margin-bottom:6px;">Drop separate images to auto-stitch:</span>
+          <div class="form-group">
+            <label>Idle Pose Image (.png)</label>
+            <input type="file" id="looseIdleInput" accept=".png" onchange="handleLooseFrame('idle', event)" />
           </div>
           <div class="form-group">
-            <label>Rows</label>
-            <input type="number" id="gridRows" value="1" min="1" max="32" oninput="updateGridSlices()" />
+            <label>Left Pose Image (.png)</label>
+            <input type="file" id="looseLeftInput" accept=".png" onchange="handleLooseFrame('left', event)" />
+          </div>
+          <div class="form-group">
+            <label>Down Pose Image (.png)</label>
+            <input type="file" id="looseDownInput" accept=".png" onchange="handleLooseFrame('down', event)" />
+          </div>
+          <div class="form-group">
+            <label>Up Pose Image (.png)</label>
+            <input type="file" id="looseUpInput" accept=".png" onchange="handleLooseFrame('up', event)" />
+          </div>
+          <div class="form-group">
+            <label>Right Pose Image (.png)</label>
+            <input type="file" id="looseRightInput" accept=".png" onchange="handleLooseFrame('right', event)" />
           </div>
         </div>
 
@@ -108,39 +146,54 @@
           <canvas id="slicerCanvas"></canvas>
         </div>
 
-        <div class="panel-header" style="margin-top: 18px;">
+        <div class="panel-header" style="margin-top: 16px;">
           <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14H7v-4h6v4z"/></svg>
-          3-State Health Icons
+          Health Icons
         </div>
         
+        <button class="pill-btn mini" style="width:100%; margin-bottom:8px; justify-content:center;" onclick="autoGenerateIconsFromIdle()">
+          ⚡ Auto-Generate 3 Icons (1-Click)
+        </button>
+
         <div class="icon-upload-grid">
           <div class="icon-slot">
             <label>Normal Icon</label>
             <input type="file" id="iconNormalInput" accept=".png" onchange="handleIconUpload('normal', event)" />
-            <div class="icon-slot-status" id="iconNormalStatus">Fallback Active</div>
+            <div class="icon-slot-status" id="iconNormalStatus">Active</div>
           </div>
           <div class="icon-slot">
             <label>Lose (&lt;20%)</label>
             <input type="file" id="iconLoseInput" accept=".png" onchange="handleIconUpload('lose', event)" />
-            <div class="icon-slot-status" id="iconLoseStatus">Fallback Active</div>
+            <div class="icon-slot-status" id="iconLoseStatus">Active</div>
           </div>
           <div class="icon-slot">
             <label>Win (&gt;80%)</label>
             <input type="file" id="iconWinInput" accept=".png" onchange="handleIconUpload('win', event)" />
-            <div class="icon-slot-status" id="iconWinStatus">Fallback Active</div>
+            <div class="icon-slot-status" id="iconWinStatus">Active</div>
           </div>
         </div>
       </div>
 
-      <!-- Center Stage: Floor & Scale Simulator -->
+      <!-- Center Stage: Stage Simulator & Controls -->
       <div class="stage-wrapper">
         <div class="stage-hud">
           <div style="display: flex; gap: 8px; align-items:center;">
-            <span style="font-size:0.75rem; font-weight:800;">STAGE FLOOR SIMULATOR</span>
+            <span style="font-size:0.75rem; font-weight:800;">STAGE SIMULATOR</span>
             <span class="key-badge">WASD / Arrow Keys</span>
           </div>
-          <div style="font-size:0.72rem; color:var(--text-dim);">
-            Active Pose: <strong id="activePoseName" style="color:var(--visor-cyan);">idle</strong>
+
+          <div style="display: flex; gap: 8px; align-items:center;">
+            <label style="font-size:0.68rem; color:var(--text-dim);">Stage:</label>
+            <select id="stageBgSelect" onchange="drawCharacter()" style="padding:2px 8px; font-size:0.72rem; background:#000; border:1px solid #444; color:#fff; border-radius:4px;">
+              <option value="mira">Mira HQ Greenhouse</option>
+              <option value="polus">Polus Snow</option>
+              <option value="airship">Airship Meeting</option>
+              <option value="defeat">Defeat Dark Mode</option>
+              <option value="clean">Minimal Grid</option>
+            </select>
+            <div style="font-size:0.72rem; color:var(--text-dim);">
+              Pose: <strong id="activePoseName" style="color:var(--visor-cyan);">idle</strong>
+            </div>
           </div>
         </div>
 
@@ -157,11 +210,8 @@
             Cam Focus: <span id="camCoords">100, -100</span>
           </div>
 
-          <!-- Visible Ground Line Tag -->
-          <div class="ground-line-tag">STAGE CARPET FLOOR LINE</div>
-
-          <!-- The Real Character Canvas with Ground Simulator -->
-          <canvas id="charCanvas" width="460" height="460"></canvas>
+          <!-- The Real Character Canvas with Stage Simulator -->
+          <canvas id="charCanvas" width="480" height="460"></canvas>
         </div>
       </div>
 
@@ -266,7 +316,6 @@
             <div class="node-cost">FREE</div>
           </div>
           <div class="tree-node" onclick="selectNode(document.getElementById('skinDisplayName').value, 150, this)">
-            <!-- Mini Render Preview inside Node -->
             <canvas id="nodeIconCanvas" width="48" height="48"></canvas>
             <div class="node-cost" id="nodeDisplayCost">150</div>
           </div>
