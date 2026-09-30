@@ -1,7 +1,8 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Complete with Multi-Character Manager, Interactive Drag & Drop Cosmicube Graph,
- * and .imp Project Serialization.
+ * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
+ * Includes complete .imp Project Save/Load Engine, Slicer with Scrubber & Zoom,
+ * Multi-Character Manager, and Draggable Cosmicube Graph.
  */
 
 // 1. GLOBAL STATE
@@ -11,6 +12,7 @@ const state = {
   idleFrameTick: 0,
   isSinging: false,
   singTimeout: null,
+  slicerZoomMode: 'fit', // 'fit' or '100'
 
   // MULTI-CHARACTER ROSTER
   characters: [
@@ -113,6 +115,7 @@ function switchTab(tabId) {
 // 4. MULTI-CHARACTER ROSTER CONTROLLER
 function renderRosterTabs() {
   const container = document.getElementById('rosterTabs');
+  if (!container) return;
   container.innerHTML = '';
 
   state.characters.forEach((char, idx) => {
@@ -180,6 +183,7 @@ function updateCurrentCharacterProp(prop, val) {
 // 5. DRAGGABLE COSMICUBE NODE GRAPH CONTROLLER
 function renderDraggableNodeBoard() {
   const layer = document.getElementById('nodesLayer');
+  if (!layer) return;
   layer.innerHTML = '';
 
   state.cosmicubeNodes.forEach(node => {
@@ -203,7 +207,6 @@ function renderDraggableNodeBoard() {
       <div class="node-cost-tag">${node.cost > 0 ? node.cost : 'FREE'}</div>
     `;
 
-    // Click to Inspect
     el.onmousedown = (e) => {
       e.stopPropagation();
       selectCosmicubeNode(node.id);
@@ -219,6 +222,7 @@ function renderDraggableNodeBoard() {
 
 function drawNodeConnectionLines() {
   const svg = document.getElementById('nodeLinesSvg');
+  if (!svg) return;
   svg.innerHTML = '';
 
   state.cosmicubeNodes.forEach(node => {
@@ -249,7 +253,6 @@ function startNodeDrag(node, el, e) {
     let newX = moveEvent.clientX - startX;
     let newY = moveEvent.clientY - startY;
 
-    // Bounds limit
     newX = Math.max(10, Math.min(boardRect.width - 86, newX));
     newY = Math.max(10, Math.min(boardRect.height - 86, newY));
 
@@ -295,6 +298,7 @@ function populateNodeInspector() {
 
 function updateNodeParentDropdown(currentNode) {
   const select = document.getElementById('nodeParentSelect');
+  if (!select) return;
   select.innerHTML = '';
 
   state.cosmicubeNodes.forEach(n => {
@@ -310,6 +314,7 @@ function updateNodeParentDropdown(currentNode) {
 
 function updateNodeCharDropdown(currentNode) {
   const select = document.getElementById('nodeCharSelect');
+  if (!select) return;
   select.innerHTML = '<option value="">(None / Cosmetic)</option>';
 
   state.characters.forEach(char => {
@@ -439,15 +444,28 @@ function switchSlicerMode(mode) {
   }
 }
 
-// 7. LABELED SPRITESHEET SLICER VIEWER
+// 7. LABELED SPRITESHEET SLICER VIEWER WITH ZOOM & SCRUBBER
 const slicerCanvas = document.getElementById('slicerCanvas');
 const slCtx = slicerCanvas.getContext('2d');
+
+function setSlicerZoom(mode) {
+  state.slicerZoomMode = mode;
+  document.getElementById('btnFitSheet').classList.toggle('active', mode === 'fit');
+  document.getElementById('btn100Sheet').classList.toggle('active', mode === '100');
+  updateSlicerMap();
+}
 
 function updateSlicerMap() {
   const char = getCurrentChar();
   const img = char.spriteImage;
   const cols = char.cols;
   const rows = char.rows;
+  const container = document.getElementById('slicerContainer');
+
+  const scrubber = document.getElementById('frameScrubber');
+  if (scrubber) {
+    scrubber.max = (cols * rows) - 1;
+  }
 
   if (img) {
     const frameW = Math.floor(img.width / cols);
@@ -479,6 +497,20 @@ function updateSlicerMap() {
         slCtx.fillText(`[${index}: ${label}]`, x + 8, y + 20);
       }
     }
+
+    if (state.slicerZoomMode === 'fit') {
+      const containerW = container.clientWidth - 16;
+      const containerH = container.clientHeight - 16;
+      const scaleW = containerW / img.width;
+      const scaleH = containerH / img.height;
+      const fitScale = Math.min(scaleW, scaleH, 1.0);
+
+      slicerCanvas.style.width = `${Math.floor(img.width * fitScale)}px`;
+      slicerCanvas.style.height = `${Math.floor(img.height * fitScale)}px`;
+    } else {
+      slicerCanvas.style.width = `${img.width}px`;
+      slicerCanvas.style.height = `${img.height}px`;
+    }
   } else {
     slicerCanvas.width = 500;
     slicerCanvas.height = 100;
@@ -498,6 +530,29 @@ function updateSlicerMap() {
       slCtx.font = 'bold 10px "Montserrat", sans-serif';
       slCtx.fillText(`[${i}: ${poseLabels[i]}]`, i * fw + 6, 18);
     }
+    slicerCanvas.style.width = '100%';
+    slicerCanvas.style.height = 'auto';
+  }
+}
+
+function scrubToFrame(index) {
+  index = parseInt(index) || 0;
+  const char = getCurrentChar();
+  const label = poseLabels[index] || `FRAME ${index}`;
+  document.getElementById('scrubberActiveTag').innerText = `[${index}: ${label}]`;
+
+  const poseKeys = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT', 'hey'];
+  if (poseKeys[index]) {
+    state.activePose = poseKeys[index];
+    document.getElementById('activePoseName').innerText = poseKeys[index];
+    drawCharacter();
+  }
+
+  if (char.spriteImage && state.slicerZoomMode === '100') {
+    const container = document.getElementById('slicerContainer');
+    const frameW = Math.floor(char.spriteImage.width / char.cols);
+    const targetScroll = (index * frameW) - (container.clientWidth / 2) + (frameW / 2);
+    container.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
   }
 }
 
@@ -1261,10 +1316,8 @@ async function bundleModZip() {
     target.file("_polymod_meta.json", metaString);
     target.file("icon.png", primaryIconBlob);
 
-    // Cosmicube Header
     target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
 
-    // Slide Banner
     target.folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
     target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
 
@@ -1282,7 +1335,6 @@ async function bundleModZip() {
     const sId = char.skinId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
     const scale = parseFloat(char.charScale) || 1.75;
 
-    // Character Config JSON
     const charConfigData = {
       renderType: "sparrow",
       version: "1.0.1",
@@ -1330,7 +1382,6 @@ async function bundleModZip() {
     };
     const charConfigString = JSON.stringify(charConfigData, null, 2);
 
-    // Spritesheet PNG & XML
     let spriteBlob;
     let frameW = 300, frameH = 240;
     let cols = char.cols, rows = char.rows;
@@ -1373,7 +1424,6 @@ async function bundleModZip() {
     const charIconBlob = await generateStitchedIconBlobForChar(char);
     const charNodeRenderBlob = await generateNodeRenderItemBlobForChar(char);
 
-    // Multi-Directory Injection for Character
     const injectChar = (t) => {
       t.folder("characters").file(`${sId}.json`, charConfigString);
       t.folder("data").folder("characters").file(`${sId}.json`, charConfigString);
@@ -1415,7 +1465,6 @@ async function bundleModZip() {
     zip.folder(primaryChar.skinId).folder("data").folder("cosmicube").folder(cubeId).file(`${node.id}.json`, nodeString);
   }
 
-  // Download Bundle
   const finalZipBlob = await zip.generateAsync({ type: "blob" });
   const downloadLink = document.createElement('a');
   downloadLink.href = URL.createObjectURL(finalZipBlob);
