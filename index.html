@@ -75,69 +75,41 @@
     <!-- TAB 1: Skin Studio -->
     <div class="tab-view active grid-skin" id="view-skin">
       
-      <!-- Left Panel: Spritesheet Slicer & Sourcing -->
+      <!-- Left Panel: Row-by-Row Slicer Manager -->
       <div class="panel">
         <div class="panel-header">
           <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-          Spritesheet Mode
+          Spritesheet Input
         </div>
 
         <div class="form-group">
-          <label>Mode / Slicing Engine</label>
-          <select id="slicerModeSelect" onchange="switchSlicerMode(this.value)">
-            <option value="upload">Upload Custom Spritesheet (.png)</option>
-            <option value="animated_template">Template: 14-Frame Animated Impostor</option>
-            <option value="static_template">Template: 5-Frame Static Impostor</option>
-            <option value="loose_pngs">Drop Loose PNGs (Image-to-Sprite Packer)</option>
-          </select>
+          <label>Spritesheet File (.png)</label>
+          <input type="file" id="spriteFileInput" accept=".png" onchange="handleSpriteUpload(event)" />
         </div>
 
-        <!-- Custom Upload Section -->
-        <div id="customUploadSection">
+        <div class="grid-2">
           <div class="form-group">
-            <label>Spritesheet File (.png)</label>
-            <input type="file" id="spriteFileInput" accept=".png" onchange="handleSpriteUpload(event)" />
+            <label>Frame Width (px)</label>
+            <input type="number" id="frameWidthInput" value="300" oninput="updateFrameDimensions()" />
           </div>
-
-          <div class="grid-2">
-            <div class="form-group">
-              <label>Columns</label>
-              <input type="number" id="gridCols" value="5" min="1" max="32" oninput="updateGridSlices()" />
-            </div>
-            <div class="form-group">
-              <label>Rows</label>
-              <input type="number" id="gridRows" value="1" min="1" max="32" oninput="updateGridSlices()" />
-            </div>
+          <div class="form-group">
+            <label>Frame Height (px)</label>
+            <input type="number" id="frameHeightInput" value="240" oninput="updateFrameDimensions()" />
           </div>
         </div>
 
-        <!-- Loose PNGs Packer Section -->
-        <div id="loosePngsSection" style="display:none;">
-          <span style="font-size:0.68rem; color:var(--visor-cyan); display:block; margin-bottom:6px;">Drop separate images to auto-stitch:</span>
-          <div class="form-group">
-            <label>Idle Pose Image (.png)</label>
-            <input type="file" id="looseIdleInput" accept=".png" onchange="handleLooseFrame('idle', event)" />
-          </div>
-          <div class="form-group">
-            <label>Left Pose Image (.png)</label>
-            <input type="file" id="looseLeftInput" accept=".png" onchange="handleLooseFrame('left', event)" />
-          </div>
-          <div class="form-group">
-            <label>Down Pose Image (.png)</label>
-            <input type="file" id="looseDownInput" accept=".png" onchange="handleLooseFrame('down', event)" />
-          </div>
-          <div class="form-group">
-            <label>Up Pose Image (.png)</label>
-            <input type="file" id="looseUpInput" accept=".png" onchange="handleLooseFrame('up', event)" />
-          </div>
-          <div class="form-group">
-            <label>Right Pose Image (.png)</label>
-            <input type="file" id="looseRightInput" accept=".png" onchange="handleLooseFrame('right', event)" />
-          </div>
+        <!-- NEW: Row-by-Row Animation Manager -->
+        <div class="panel-header" style="margin-top: 14px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Animation Rows</span>
+          <button class="pill-btn mini" style="background:#22c55e; border-color:#22c55e;" onclick="promptAddAnimationRow()">
+            ➕ Add Row
+          </button>
         </div>
 
-        <!-- Custom Slicer Header & View Toggles -->
-        <div class="slice-preview-header">
+        <div class="anim-rows-container" id="animRowsList"></div>
+
+        <!-- Slicer Visual Map -->
+        <div class="slice-preview-header" style="margin-top:14px;">
           <div style="display:flex; gap:6px; align-items:center;">
             <span>Live Slicer Map</span>
             <button class="pill-btn mini active" id="btnFitSheet" onclick="setSlicerZoom('fit')">Fit All</button>
@@ -146,12 +118,12 @@
           <span id="frameDimTag">300 x 240 px</span>
         </div>
 
-        <!-- Custom Slicer Container with Neon Track (No Left Clipping!) -->
+        <!-- Scrollable Labeled Slicer Box (No Left Clipping!) -->
         <div class="slicer-container" id="slicerContainer">
           <canvas id="slicerCanvas"></canvas>
         </div>
 
-        <!-- Custom Frame Scrubber Slider -->
+        <!-- Frame Scrubber -->
         <div class="frame-scrubber-bar">
           <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-dim); margin-bottom:4px;">
             <span>Frame Scrubber:</span>
@@ -233,7 +205,7 @@
             Cam Focus: <span id="camCoords">100, -100</span>
           </div>
 
-          <!-- The Real Character Canvas with Stage Simulator -->
+          <!-- Canvas with Stage Simulator -->
           <canvas id="charCanvas" width="480" height="460"></canvas>
         </div>
       </div>
@@ -292,12 +264,6 @@
           <label>Sing Pose Hold Duration (Beats)</label>
           <input type="number" id="singDurationInput" value="6" min="2" max="15" />
           <span style="font-size:0.65rem; color:var(--visor-cyan);">How long poses stay held before returning to Idle</span>
-        </div>
-
-        <div class="form-group">
-          <label>Idle Frame Pacing (Indices Sequence)</label>
-          <input type="text" id="idleIndicesInput" value="0, 0, 1, 1, 2, 2, 3, 3" />
-          <span style="font-size:0.65rem; color:var(--text-dim);">Duplicates frames to hold/smooth poses</span>
         </div>
 
         <div class="form-group">
@@ -362,7 +328,6 @@
           </div>
         </div>
 
-        <!-- Draggable Board Container -->
         <div class="node-board-container" id="nodeBoardContainer">
           <svg id="nodeLinesSvg"></svg>
           <div id="nodesLayer"></div>
@@ -447,7 +412,7 @@ your_mod.zip/
 │       ├── [node1].json          (Branch item 1)
 │       └── [node2].json          (Branch item 2)
 ├── characters/
-│   └── [char1].json              (Character 1 config)
+│   ├── [char1].json              (Character 1 config)
 │   └── [char2].json              (Character 2 config)
 ├── images/ & shared/images/
 │   ├── characters/[char].png     (Full unclipped spritesheets)
