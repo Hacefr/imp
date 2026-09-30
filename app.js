@@ -1,18 +1,16 @@
 /**
  * VS Impostor V4 Legacy - Playable Skin Studio Core Engine
- * Verified format matching official VS Impostor Legacy, Security DLC & idkbf specs.
- * Includes complete .imp Project Save/Load Engine, Slicer with Scrubber & Zoom,
+ * Complete with Row-by-Row Animation Builder, Variable Frame Counts,
  * Multi-Character Manager, and Draggable Cosmicube Graph.
  */
 
 // 1. GLOBAL STATE
 const state = {
-  mode: 'upload',
   activePose: 'idle',
   idleFrameTick: 0,
   isSinging: false,
   singTimeout: null,
-  slicerZoomMode: 'fit', // 'fit' or '100'
+  slicerZoomMode: 'fit',
 
   // MULTI-CHARACTER ROSTER
   characters: [
@@ -23,14 +21,24 @@ const state = {
       stageOffsetX: 0,
       stageOffsetY: 400,
       healthColor: '#ffdd00',
-      cols: 5,
-      rows: 1,
+      frameWidth: 300,
+      frameHeight: 240,
       rawSpriteFile: null,
       spriteImage: null,
       customNodeRenderImage: null,
       icons: { normal: null, lose: null, win: null },
       hatAnchor: { x: 0, y: -90 },
-      camAnchor: { x: 100, y: -100 }
+      camAnchor: { x: 100, y: -100 },
+
+      // ROW-BY-ROW ANIMATION ARCHITECTURE (Matches your exact drawing!)
+      animationRows: [
+        { name: "idle", label: "Idle frames", prefix: "idle", count: 4 },
+        { name: "singUP", label: "Up frames", prefix: "singUP", count: 1 },
+        { name: "singDOWN", label: "down frames", prefix: "singDOWN", count: 1 },
+        { name: "singLEFT", label: "Left frames", prefix: "singLEFT", count: 1 },
+        { name: "singRIGHT", label: "Right frames", prefix: "singRIGHT", count: 1 },
+        { name: "hey", label: "Peace / Taunt", prefix: "peace", count: 1 }
+      ]
     }
   ],
   activeCharIndex: 0,
@@ -42,11 +50,8 @@ const state = {
   ],
   selectedNodeId: 'bf_star_impostor',
 
-  customBannerImage: null,
-  looseFrames: { idle: null, left: null, down: null, up: null, right: null }
+  customBannerImage: null
 };
-
-const poseLabels = ["IDLE", "LEFT", "DOWN", "UP", "RIGHT", "HEY / PEACE", "IDLE 2", "IDLE 3"];
 
 function getCurrentChar() {
   return state.characters[state.activeCharIndex] || state.characters[0];
@@ -137,13 +142,14 @@ function selectCharacter(idx) {
   document.getElementById('stageOffsetX').value = char.stageOffsetX;
   document.getElementById('stageOffsetY').value = char.stageOffsetY;
   document.getElementById('healthColor').value = char.healthColor;
-  document.getElementById('gridCols').value = char.cols;
-  document.getElementById('gridRows').value = char.rows;
+  document.getElementById('frameWidthInput').value = char.frameWidth || 300;
+  document.getElementById('frameHeightInput').value = char.frameHeight || 240;
 
   document.getElementById('hatCoords').innerText = `${char.hatAnchor.x}, ${char.hatAnchor.y}`;
   document.getElementById('camCoords').innerText = `${char.camAnchor.x}, ${char.camAnchor.y}`;
 
   renderRosterTabs();
+  renderAnimRowsUI();
   updateSlicerMap();
   drawCharacter();
 }
@@ -157,14 +163,22 @@ function addNewCharacter() {
     stageOffsetX: 0,
     stageOffsetY: 400,
     healthColor: '#ff3344',
-    cols: 5,
-    rows: 1,
+    frameWidth: 300,
+    frameHeight: 240,
     rawSpriteFile: null,
     spriteImage: null,
     customNodeRenderImage: null,
     icons: { normal: null, lose: null, win: null },
     hatAnchor: { x: 0, y: -90 },
-    camAnchor: { x: 100, y: -100 }
+    camAnchor: { x: 100, y: -100 },
+    animationRows: [
+      { name: "idle", label: "Idle frames", prefix: "idle", count: 4 },
+      { name: "singUP", label: "Up frames", prefix: "singUP", count: 1 },
+      { name: "singDOWN", label: "down frames", prefix: "singDOWN", count: 1 },
+      { name: "singLEFT", label: "Left frames", prefix: "singLEFT", count: 1 },
+      { name: "singRIGHT", label: "Right frames", prefix: "singRIGHT", count: 1 },
+      { name: "hey", label: "Peace / Taunt", prefix: "peace", count: 1 }
+    ]
   };
 
   state.characters.push(newChar);
@@ -180,7 +194,548 @@ function updateCurrentCharacterProp(prop, val) {
   }
 }
 
-// 5. DRAGGABLE COSMICUBE NODE GRAPH CONTROLLER
+// 5. ROW-BY-ROW ANIMATION CONTROLLER (Interactive Steppers & Deletes)
+function renderAnimRowsUI() {
+  const char = getCurrentChar();
+  const container = document.getElementById('animRowsList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  char.animationRows.forEach((row, idx) => {
+    const item = document.createElement('div');
+    item.className = 'anim-row-item';
+    item.innerHTML = `
+      <div class="anim-row-title">
+        <span>🎬 ${row.label}</span>
+        <span style="font-size:0.65rem; color:var(--text-dim);">(${row.name})</span>
+      </div>
+      <div class="anim-row-stepper">
+        <button class="pill-btn mini" onclick="adjustAnimRowCount(${idx}, -1)">-</button>
+        <span>${row.count} ${row.count === 1 ? 'frame' : 'frames'}</span>
+        <button class="pill-btn mini" onclick="adjustAnimRowCount(${idx}, 1)">+</button>
+        <button class="pill-btn mini" style="background:#ef4444; border-color:#ef4444; margin-left:4px;" onclick="deleteAnimRow(${idx})">🗑️</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function adjustAnimRowCount(rowIdx, delta) {
+  const char = getCurrentChar();
+  const row = char.animationRows[rowIdx];
+  if (row) {
+    row.count = Math.max(1, Math.min(32, row.count + delta));
+    renderAnimRowsUI();
+    updateSlicerMap();
+    drawCharacter();
+  }
+}
+
+function deleteAnimRow(rowIdx) {
+  const char = getCurrentChar();
+  if (char.animationRows.length <= 1) {
+    alert("You must keep at least 1 animation row!");
+    return;
+  }
+  char.animationRows.splice(rowIdx, 1);
+  renderAnimRowsUI();
+  updateSlicerMap();
+  drawCharacter();
+}
+
+function promptAddAnimationRow() {
+  const name = prompt("Enter Animation Name (e.g. singUPmiss, attack, scared, hey):", "singUPmiss");
+  if (!name) return;
+
+  const char = getCurrentChar();
+  char.animationRows.push({
+    name: name,
+    label: `${name} frames`,
+    prefix: name,
+    count: 1
+  });
+  renderAnimRowsUI();
+  updateSlicerMap();
+}
+
+function updateFrameDimensions() {
+  const char = getCurrentChar();
+  char.frameWidth = parseInt(document.getElementById('frameWidthInput').value) || 300;
+  char.frameHeight = parseInt(document.getElementById('frameHeightInput').value) || 240;
+  updateSlicerMap();
+  autoCalibrateScale();
+  drawCharacter();
+}
+
+// 6. VISUAL SKETCH SLICER CANVAS
+const slicerCanvas = document.getElementById('slicerCanvas');
+const slCtx = slicerCanvas.getContext('2d');
+
+function setSlicerZoom(mode) {
+  state.slicerZoomMode = mode;
+  document.getElementById('btnFitSheet').classList.toggle('active', mode === 'fit');
+  document.getElementById('btn100Sheet').classList.toggle('active', mode === '100');
+  updateSlicerMap();
+}
+
+function updateSlicerMap() {
+  const char = getCurrentChar();
+  const img = char.spriteImage;
+  const rows = char.animationRows;
+  const container = document.getElementById('slicerContainer');
+
+  const frameW = char.frameWidth || 300;
+  const frameH = char.frameHeight || 240;
+  document.getElementById('frameDimTag').innerText = `${frameW} x ${frameH} px per cell`;
+
+  // Find maximum frames across all rows
+  const maxCols = Math.max(...rows.map(r => r.count), 1);
+  const totalW = maxCols * frameW;
+  const totalH = rows.length * frameH;
+
+  slicerCanvas.width = totalW;
+  slicerCanvas.height = totalH;
+
+  slCtx.clearRect(0, 0, totalW, totalH);
+
+  if (img) {
+    slCtx.drawImage(img, 0, 0);
+  } else {
+    // Background placeholder canvas
+    slCtx.fillStyle = '#080a10';
+    slCtx.fillRect(0, 0, totalW, totalH);
+  }
+
+  // Draw Visual Rows Matching User's Sketch!
+  rows.forEach((row, rIdx) => {
+    const y = rIdx * frameH;
+
+    // Header label matching sketch ("Idle frames", "Up frames", etc.)
+    slCtx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    slCtx.fillRect(6, y + 6, 200, 24);
+    slCtx.fillStyle = '#fde047';
+    slCtx.font = 'bold 12px "Montserrat", sans-serif';
+    slCtx.fillText(`--- ${row.label} (${row.count} frame${row.count > 1 ? 's' : ''}) ---`, 10, y + 22);
+
+    // Draw Blue Rounded Cut Boxes matching the drawing
+    for (let f = 0; f < row.count; f++) {
+      const x = f * frameW;
+
+      slCtx.strokeStyle = '#38bdf8';
+      slCtx.lineWidth = 3;
+      slCtx.beginPath();
+      slCtx.roundRect(x + 4, y + 4, frameW - 8, frameH - 8, 12);
+      slCtx.stroke();
+
+      // Mini corner tag
+      slCtx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+      slCtx.beginPath();
+      slCtx.roundRect(x + 8, y + 32, 70, 18, 6);
+      slCtx.fill();
+
+      slCtx.fillStyle = '#ffffff';
+      slCtx.font = '900 10px monospace';
+      slCtx.fillText(`FRAME ${f}`, x + 14, y + 45);
+    }
+  });
+
+  // Apply View Mode Zoom
+  if (state.slicerZoomMode === 'fit') {
+    const containerW = container.clientWidth - 16;
+    const containerH = container.clientHeight - 16;
+    const scaleW = containerW / totalW;
+    const scaleH = containerH / totalH;
+    const fitScale = Math.min(scaleW, scaleH, 1.0);
+
+    slicerCanvas.style.width = `${Math.floor(totalW * fitScale)}px`;
+    slicerCanvas.style.height = `${Math.floor(totalH * fitScale)}px`;
+  } else {
+    slicerCanvas.style.width = `${totalW}px`;
+    slicerCanvas.style.height = `${totalH}px`;
+  }
+
+  // Update Scrubber Max
+  const scrubber = document.getElementById('frameScrubber');
+  if (scrubber) {
+    const totalFrames = rows.reduce((acc, r) => acc + r.count, 0);
+    scrubber.max = Math.max(1, totalFrames - 1);
+  }
+}
+
+function scrubToFrame(frameIndex) {
+  frameIndex = parseInt(frameIndex) || 0;
+  const char = getCurrentChar();
+  
+  let countAccum = 0;
+  for (const row of char.animationRows) {
+    if (frameIndex < countAccum + row.count) {
+      state.activePose = row.name;
+      document.getElementById('scrubberActiveTag').innerText = `[${frameIndex}: ${row.label}]`;
+      document.getElementById('activePoseName').innerText = row.name;
+      drawCharacter();
+      break;
+    }
+    countAccum += row.count;
+  }
+}
+
+// 7. STAGE SIMULATOR
+const charCanvas = document.getElementById('charCanvas');
+const ctx = charCanvas.getContext('2d');
+
+function drawStageBackground(c, type) {
+  const w = charCanvas.width;
+  const h = charCanvas.height;
+  const groundY = h * 0.78;
+
+  if (type === 'mira') {
+    const skyGrad = c.createLinearGradient(0, 0, 0, groundY);
+    skyGrad.addColorStop(0, '#7dd3fc');
+    skyGrad.addColorStop(1, '#e0f2fe');
+    c.fillStyle = skyGrad;
+    c.fillRect(0, 0, w, groundY);
+
+    c.fillStyle = 'rgba(255,255,255,0.4)';
+    c.fillRect(w * 0.35, 30, w * 0.3, groundY - 30);
+    c.strokeStyle = '#0284c7';
+    c.lineWidth = 3;
+    c.strokeRect(w * 0.35, 30, w * 0.3, groundY - 30);
+
+    c.fillStyle = '#16a34a';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else if (type === 'polus') {
+    c.fillStyle = '#0f172a';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#e2e8f0';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else if (type === 'airship') {
+    c.fillStyle = '#991b1b';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#374151';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else if (type === 'defeat') {
+    c.fillStyle = '#000000';
+    c.fillRect(0, 0, w, groundY);
+    c.fillStyle = '#b91c1c';
+    c.fillRect(0, groundY, w, h - groundY);
+  } else {
+    c.fillStyle = 'rgba(0,0,0,0.5)';
+    c.fillRect(0, 0, w, h);
+  }
+
+  c.strokeStyle = '#22c55e';
+  c.lineWidth = 3;
+  c.setLineDash([8, 6]);
+  c.beginPath();
+  c.moveTo(0, groundY);
+  c.lineTo(w, groundY);
+  c.stroke();
+  c.setLineDash([]);
+}
+
+function drawCharacter() {
+  ctx.clearRect(0, 0, charCanvas.width, charCanvas.height);
+  const char = getCurrentChar();
+
+  const bgType = document.getElementById('stageBgSelect') ? document.getElementById('stageBgSelect').value : 'mira';
+  drawStageBackground(ctx, bgType);
+
+  const antialias = document.getElementById('antialiasSelect').value === 'true';
+  ctx.imageSmoothingEnabled = antialias;
+
+  const scale = parseFloat(char.charScale) || 1.75;
+  const color = char.healthColor || '#ffdd00';
+  const groundY = charCanvas.height * 0.78;
+
+  ctx.save();
+  ctx.translate(charCanvas.width / 2, groundY);
+  ctx.scale(scale, scale);
+
+  if (char.spriteImage) {
+    const frameW = char.frameWidth || 300;
+    const frameH = char.frameHeight || 240;
+
+    // Find row for active move
+    const rowIdx = char.animationRows.findIndex(r => r.name === state.activePose);
+    const activeRow = char.animationRows[rowIdx >= 0 ? rowIdx : 0];
+    const actualRowIdx = rowIdx >= 0 ? rowIdx : 0;
+
+    // Play according to row's frame count!
+    const frameCol = state.idleFrameTick % activeRow.count;
+    const sx = frameCol * frameW;
+    const sy = actualRowIdx * frameH;
+
+    ctx.drawImage(char.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH, frameW, frameH);
+  } else {
+    renderProceduralImpostor(ctx, color, state.activePose);
+  }
+
+  ctx.restore();
+}
+
+function renderProceduralImpostor(c, bodyColor, pose) {
+  let offsetX = 0, offsetY = 0, rot = 0;
+  if (pose === 'singLEFT')  { offsetX = -25; rot = -0.08; }
+  if (pose === 'singDOWN')  { offsetY = 20; }
+  if (pose === 'singUP')    { offsetY = -20; }
+  if (pose === 'singRIGHT') { offsetX = 25; rot = 0.08; }
+  if (pose === 'hey')       { offsetY = -25; rot = 0.05; }
+
+  c.save();
+  c.translate(offsetX, offsetY);
+  c.rotate(rot);
+
+  // Backpack on Right (+X)
+  c.fillStyle = bodyColor;
+  c.strokeStyle = '#000000';
+  c.lineWidth = 8;
+  c.beginPath();
+  c.roundRect(55, -150, 35, 120, 16);
+  c.fill();
+  c.stroke();
+
+  // Main Body
+  c.beginPath();
+  c.roundRect(-70, -200, 140, 200, [70, 70, 25, 25]);
+  c.fill();
+  c.stroke();
+
+  // Visor on Left (-X) -> Faces Left
+  c.fillStyle = '#7feaff';
+  c.beginPath();
+  c.roundRect(-60, -165, 80, 48, 24);
+  c.fill();
+  c.stroke();
+
+  // Visor Highlight
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.roundRect(-45, -158, 50, 14, 7);
+  c.fill();
+
+  c.restore();
+}
+
+// 8. CONDUCTOR BEAT SIMULATOR (Single Bop on Beat)
+let beatTimer = 0;
+function stageAnimationLoop(time) {
+  if (time - beatTimer > 500) {
+    beatTimer = time;
+    if (!state.isSinging) {
+      state.idleFrameTick++;
+      drawCharacter();
+    }
+  }
+  requestAnimationFrame(stageAnimationLoop);
+}
+requestAnimationFrame(stageAnimationLoop);
+
+// 9. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
+function autoCalibrateScale() {
+  const char = getCurrentChar();
+  const currentHeight = char.frameHeight || 240;
+  const calculatedScale = (380 / currentHeight).toFixed(2);
+  char.charScale = calculatedScale;
+  document.getElementById('charScale').value = calculatedScale;
+  drawCharacter();
+}
+
+// 10. FILE UPLOAD HANDLERS
+function handleSpriteUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const char = getCurrentChar();
+  char.rawSpriteFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      char.spriteImage = img;
+      updateSlicerMap();
+      autoCalibrateScale();
+      drawCharacter();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleIconUpload(slot, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const char = getCurrentChar();
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      char.icons[slot] = img;
+      document.getElementById(`icon${slot.charAt(0).toUpperCase() + slot.slice(1)}Status`).innerText = `Loaded (${img.width}x${img.height})`;
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleBannerUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      state.customBannerImage = img;
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleNodeRenderUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const char = getCurrentChar();
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      char.customNodeRenderImage = img;
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function autoGenerateIconsFromIdle() {
+  const char = getCurrentChar();
+  const baseCanvas = document.createElement('canvas');
+  baseCanvas.width = 150;
+  baseCanvas.height = 150;
+  const bCtx = baseCanvas.getContext('2d');
+
+  if (char.spriteImage) {
+    const fw = char.frameWidth || 300;
+    const fh = char.frameHeight || 240;
+    bCtx.drawImage(char.spriteImage, 0, 0, fw, fh, 10, 10, 130, 130);
+  } else {
+    bCtx.save();
+    bCtx.translate(75, 120);
+    bCtx.scale(0.55, 0.55);
+    renderProceduralImpostor(bCtx, char.healthColor, 'idle');
+    bCtx.restore();
+  }
+
+  const imgNormal = new Image();
+  imgNormal.src = baseCanvas.toDataURL('image/png');
+  char.icons.normal = imgNormal;
+  document.getElementById('iconNormalStatus').innerText = 'Auto-Generated';
+
+  const loseCanvas = document.createElement('canvas');
+  loseCanvas.width = 150;
+  loseCanvas.height = 150;
+  const lCtx = loseCanvas.getContext('2d');
+  lCtx.drawImage(baseCanvas, 0, 0);
+  lCtx.fillStyle = 'rgba(255, 51, 68, 0.35)';
+  lCtx.fillRect(0, 0, 150, 150);
+  lCtx.strokeStyle = '#000000';
+  lCtx.lineWidth = 5;
+  lCtx.beginPath();
+  lCtx.moveTo(40, 20); lCtx.lineTo(75, 80); lCtx.lineTo(60, 130);
+  lCtx.moveTo(110, 30); lCtx.lineTo(80, 80); lCtx.lineTo(105, 120);
+  lCtx.stroke();
+
+  const imgLose = new Image();
+  imgLose.src = loseCanvas.toDataURL('image/png');
+  char.icons.lose = imgLose;
+  document.getElementById('iconLoseStatus').innerText = 'Auto-Generated';
+
+  const winCanvas = document.createElement('canvas');
+  winCanvas.width = 150;
+  winCanvas.height = 150;
+  const wCtx = winCanvas.getContext('2d');
+  wCtx.drawImage(baseCanvas, 0, 0);
+  wCtx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+  wCtx.fillRect(0, 0, 150, 150);
+  wCtx.fillStyle = '#ffffff';
+  wCtx.font = 'bold 24px sans-serif';
+  wCtx.fillText('★', 18, 40);
+  wCtx.fillText('★', 115, 55);
+
+  const imgWin = new Image();
+  imgWin.src = winCanvas.toDataURL('image/png');
+  char.icons.win = imgWin;
+  document.getElementById('iconWinStatus').innerText = 'Auto-Generated';
+
+  alert(`Generated 3-State Icons for "${char.skinDisplayName}"!`);
+}
+
+// 11. KEYBOARD LISTENER
+window.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  let newPose = null;
+
+  if (key === 'arrowleft' || key === 'a') newPose = 'singLEFT';
+  if (key === 'arrowdown' || key === 's') newPose = 'singDOWN';
+  if (key === 'arrowup' || key === 'w') newPose = 'singUP';
+  if (key === 'arrowright' || key === 'd') newPose = 'singRIGHT';
+  if (key === ' ' || key === 'shift') newPose = 'hey';
+
+  if (newPose) {
+    state.activePose = newPose;
+    state.isSinging = true;
+    document.getElementById('activePoseName').innerText = newPose;
+    drawCharacter();
+
+    clearTimeout(state.singTimeout);
+    state.singTimeout = setTimeout(() => {
+      state.isSinging = false;
+      state.activePose = 'idle';
+      document.getElementById('activePoseName').innerText = 'idle';
+      drawCharacter();
+    }, 450);
+  }
+});
+
+// 12. DRAGGABLE ANCHORS
+function setupDraggableAnchor(elementId, coordDisplayId, anchorProp) {
+  const el = document.getElementById(elementId);
+  const container = document.getElementById('stageCanvasContainer');
+  let dragging = false;
+
+  el.addEventListener('mousedown', () => dragging = true);
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const char = getCurrentChar();
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    el.style.left = `${x - 25}px`;
+    el.style.top = `${y - 12}px`;
+
+    const relX = Math.round(x - rect.width / 2);
+    const relY = Math.round(y - rect.height * 0.78);
+    char[anchorProp].x = relX;
+    char[anchorProp].y = relY;
+
+    document.getElementById(coordDisplayId).innerText = `${relX}, ${relY}`;
+  });
+  window.addEventListener('mouseup', () => dragging = false);
+}
+
+setupDraggableAnchor('hatMarker', 'hatCoords', 'hatAnchor');
+setupDraggableAnchor('camMarker', 'camCoords', 'camAnchor');
+
+document.getElementById('hatMarker').style.left = '46%';
+document.getElementById('hatMarker').style.top = '22%';
+document.getElementById('camMarker').style.left = '58%';
+document.getElementById('camMarker').style.top = '45%';
+
+// 13. DRAGGABLE COSMICUBE BOARD CONTROLLER
 function renderDraggableNodeBoard() {
   const layer = document.getElementById('nodesLayer');
   if (!layer) return;
@@ -366,626 +921,6 @@ function deleteSelectedNode() {
   renderDraggableNodeBoard();
 }
 
-// 6. ANIMATED TEMPLATE GENERATOR
-async function generateAnimatedTemplateImage(bodyColor) {
-  const sheet = document.createElement('canvas');
-  const fw = 300, fh = 260;
-  sheet.width = fw * 7;
-  sheet.height = fh * 2;
-  const sCtx = sheet.getContext('2d');
-
-  const idleBops = [0, -6, -12, -4];
-  idleBops.forEach((offsetY, i) => {
-    sCtx.save();
-    sCtx.translate(i * fw + fw / 2, fh * 0.88 + offsetY);
-    renderProceduralImpostor(sCtx, bodyColor, 'idle', i * 0.05);
-    sCtx.restore();
-  });
-
-  [0, 1].forEach((sub, i) => {
-    sCtx.save();
-    sCtx.translate((4 + i) * fw + fw / 2, fh * 0.88);
-    renderProceduralImpostor(sCtx, bodyColor, 'singLEFT', sub * 0.04);
-    sCtx.restore();
-  });
-
-  sCtx.save();
-  sCtx.translate(6 * fw + fw / 2, fh * 0.88);
-  renderProceduralImpostor(sCtx, bodyColor, 'singDOWN', 0);
-  sCtx.restore();
-
-  const row2Poses = ['singDOWN', 'singUP', 'singUP', 'singRIGHT', 'singRIGHT', 'hey', 'hey'];
-  row2Poses.forEach((pose, i) => {
-    sCtx.save();
-    sCtx.translate(i * fw + fw / 2, fh + fh * 0.88);
-    renderProceduralImpostor(sCtx, bodyColor, pose, (i % 2) * 0.05);
-    sCtx.restore();
-  });
-
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.src = sheet.toDataURL('image/png');
-  });
-}
-
-function switchSlicerMode(mode) {
-  state.mode = mode;
-  document.getElementById('customUploadSection').style.display = (mode === 'upload') ? 'block' : 'none';
-  document.getElementById('loosePngsSection').style.display = (mode === 'loose_pngs') ? 'block' : 'none';
-
-  const char = getCurrentChar();
-
-  if (mode === 'animated_template') {
-    char.cols = 7;
-    char.rows = 2;
-    document.getElementById('gridCols').value = 7;
-    document.getElementById('gridRows').value = 2;
-    generateAnimatedTemplateImage(char.healthColor).then(img => {
-      char.spriteImage = img;
-      updateSlicerMap();
-      autoCalibrateScale();
-      drawCharacter();
-    });
-  } else if (mode === 'static_template') {
-    char.cols = 5;
-    char.rows = 1;
-    document.getElementById('gridCols').value = 5;
-    document.getElementById('gridRows').value = 1;
-    char.spriteImage = null;
-    updateSlicerMap();
-    autoCalibrateScale();
-    drawCharacter();
-  } else if (mode === 'upload') {
-    char.cols = parseInt(document.getElementById('gridCols').value) || 5;
-    char.rows = parseInt(document.getElementById('gridRows').value) || 1;
-    updateSlicerMap();
-    drawCharacter();
-  }
-}
-
-// 7. LABELED SPRITESHEET SLICER VIEWER WITH ZOOM & SCRUBBER
-const slicerCanvas = document.getElementById('slicerCanvas');
-const slCtx = slicerCanvas.getContext('2d');
-
-function setSlicerZoom(mode) {
-  state.slicerZoomMode = mode;
-  document.getElementById('btnFitSheet').classList.toggle('active', mode === 'fit');
-  document.getElementById('btn100Sheet').classList.toggle('active', mode === '100');
-  updateSlicerMap();
-}
-
-function updateSlicerMap() {
-  const char = getCurrentChar();
-  const img = char.spriteImage;
-  const cols = char.cols;
-  const rows = char.rows;
-  const container = document.getElementById('slicerContainer');
-
-  const scrubber = document.getElementById('frameScrubber');
-  if (scrubber) {
-    scrubber.max = (cols * rows) - 1;
-  }
-
-  if (img) {
-    const frameW = Math.floor(img.width / cols);
-    const frameH = Math.floor(img.height / rows);
-    document.getElementById('frameDimTag').innerText = `${frameW} x ${frameH} px per frame`;
-
-    slicerCanvas.width = img.width;
-    slicerCanvas.height = img.height;
-
-    slCtx.clearRect(0, 0, slicerCanvas.width, slicerCanvas.height);
-    slCtx.drawImage(img, 0, 0);
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const index = r * cols + c;
-        const x = c * frameW;
-        const y = r * frameH;
-        const label = poseLabels[index] || `FRAME ${index}`;
-
-        slCtx.strokeStyle = '#38bdf8';
-        slCtx.lineWidth = 3;
-        slCtx.strokeRect(x + 2, y + 2, frameW - 4, frameH - 4);
-
-        slCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        slCtx.fillRect(x + 4, y + 4, frameW - 8, 24);
-
-        slCtx.fillStyle = '#fde047';
-        slCtx.font = 'bold 12px "Montserrat", sans-serif';
-        slCtx.fillText(`[${index}: ${label}]`, x + 8, y + 20);
-      }
-    }
-
-    if (state.slicerZoomMode === 'fit') {
-      const containerW = container.clientWidth - 16;
-      const containerH = container.clientHeight - 16;
-      const scaleW = containerW / img.width;
-      const scaleH = containerH / img.height;
-      const fitScale = Math.min(scaleW, scaleH, 1.0);
-
-      slicerCanvas.style.width = `${Math.floor(img.width * fitScale)}px`;
-      slicerCanvas.style.height = `${Math.floor(img.height * fitScale)}px`;
-    } else {
-      slicerCanvas.style.width = `${img.width}px`;
-      slicerCanvas.style.height = `${img.height}px`;
-    }
-  } else {
-    slicerCanvas.width = 500;
-    slicerCanvas.height = 100;
-    document.getElementById('frameDimTag').innerText = `300 x 240 px (Target)`;
-
-    slCtx.clearRect(0, 0, slicerCanvas.width, slicerCanvas.height);
-    const fw = 100;
-    for (let i = 0; i < 5; i++) {
-      slCtx.strokeStyle = '#38bdf8';
-      slCtx.lineWidth = 2;
-      slCtx.strokeRect(i * fw + 2, 2, fw - 4, 96);
-
-      slCtx.fillStyle = 'rgba(0,0,0,0.6)';
-      slCtx.fillRect(i * fw + 4, 4, fw - 8, 20);
-
-      slCtx.fillStyle = '#fde047';
-      slCtx.font = 'bold 10px "Montserrat", sans-serif';
-      slCtx.fillText(`[${i}: ${poseLabels[i]}]`, i * fw + 6, 18);
-    }
-    slicerCanvas.style.width = '100%';
-    slicerCanvas.style.height = 'auto';
-  }
-}
-
-function scrubToFrame(index) {
-  index = parseInt(index) || 0;
-  const char = getCurrentChar();
-  const label = poseLabels[index] || `FRAME ${index}`;
-  document.getElementById('scrubberActiveTag').innerText = `[${index}: ${label}]`;
-
-  const poseKeys = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT', 'hey'];
-  if (poseKeys[index]) {
-    state.activePose = poseKeys[index];
-    document.getElementById('activePoseName').innerText = poseKeys[index];
-    drawCharacter();
-  }
-
-  if (char.spriteImage && state.slicerZoomMode === '100') {
-    const container = document.getElementById('slicerContainer');
-    const frameW = Math.floor(char.spriteImage.width / char.cols);
-    const targetScroll = (index * frameW) - (container.clientWidth / 2) + (frameW / 2);
-    container.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
-  }
-}
-
-// 8. STAGE SIMULATOR
-const charCanvas = document.getElementById('charCanvas');
-const ctx = charCanvas.getContext('2d');
-
-function drawStageBackground(c, type) {
-  const w = charCanvas.width;
-  const h = charCanvas.height;
-  const groundY = h * 0.78;
-
-  if (type === 'mira') {
-    const skyGrad = c.createLinearGradient(0, 0, 0, groundY);
-    skyGrad.addColorStop(0, '#7dd3fc');
-    skyGrad.addColorStop(1, '#e0f2fe');
-    c.fillStyle = skyGrad;
-    c.fillRect(0, 0, w, groundY);
-
-    c.fillStyle = 'rgba(255,255,255,0.4)';
-    c.fillRect(w * 0.35, 30, w * 0.3, groundY - 30);
-    c.strokeStyle = '#0284c7';
-    c.lineWidth = 3;
-    c.strokeRect(w * 0.35, 30, w * 0.3, groundY - 30);
-
-    c.fillStyle = '#16a34a';
-    c.fillRect(0, groundY, w, h - groundY);
-  } else if (type === 'polus') {
-    c.fillStyle = '#0f172a';
-    c.fillRect(0, 0, w, groundY);
-    c.fillStyle = '#e2e8f0';
-    c.fillRect(0, groundY, w, h - groundY);
-  } else if (type === 'airship') {
-    c.fillStyle = '#991b1b';
-    c.fillRect(0, 0, w, groundY);
-    c.fillStyle = '#374151';
-    c.fillRect(0, groundY, w, h - groundY);
-  } else if (type === 'defeat') {
-    c.fillStyle = '#000000';
-    c.fillRect(0, 0, w, groundY);
-    c.fillStyle = '#b91c1c';
-    c.fillRect(0, groundY, w, h - groundY);
-  } else {
-    c.fillStyle = 'rgba(0,0,0,0.5)';
-    c.fillRect(0, 0, w, h);
-  }
-
-  c.strokeStyle = '#22c55e';
-  c.lineWidth = 3;
-  c.setLineDash([8, 6]);
-  c.beginPath();
-  c.moveTo(0, groundY);
-  c.lineTo(w, groundY);
-  c.stroke();
-  c.setLineDash([]);
-}
-
-function drawCharacter() {
-  ctx.clearRect(0, 0, charCanvas.width, charCanvas.height);
-  const char = getCurrentChar();
-
-  const bgType = document.getElementById('stageBgSelect') ? document.getElementById('stageBgSelect').value : 'mira';
-  drawStageBackground(ctx, bgType);
-
-  const antialias = document.getElementById('antialiasSelect').value === 'true';
-  ctx.imageSmoothingEnabled = antialias;
-
-  const scale = parseFloat(char.charScale) || 1.75;
-  const color = char.healthColor || '#ffdd00';
-  const groundY = charCanvas.height * 0.78;
-
-  ctx.save();
-  ctx.translate(charCanvas.width / 2, groundY);
-  ctx.scale(scale, scale);
-
-  if (char.spriteImage) {
-    const frameW = char.spriteImage.width / char.cols;
-    const frameH = char.spriteImage.height / char.rows;
-    
-    let frameIndex = 0;
-    if (state.mode === 'animated_template') {
-      const animatedMap = {
-        idle: [0, 1, 2, 3],
-        singLEFT: [4, 5],
-        singDOWN: [6, 7],
-        singUP: [8, 9],
-        singRIGHT: [10, 11],
-        hey: [12, 13]
-      };
-      const activeFrames = animatedMap[state.activePose] || [0];
-      frameIndex = activeFrames[state.idleFrameTick % activeFrames.length];
-    } else {
-      const poseIndexMap = { idle: 0, singLEFT: 1, singDOWN: 2, singUP: 3, singRIGHT: 4, hey: 0 };
-      frameIndex = poseIndexMap[state.activePose] || 0;
-    }
-    
-    const col = frameIndex % char.cols;
-    const row = Math.floor(frameIndex / char.cols) % char.rows;
-    const sx = col * frameW;
-    const sy = row * frameH;
-
-    ctx.drawImage(char.spriteImage, sx, sy, frameW, frameH, -frameW / 2, -frameH, frameW, frameH);
-  } else {
-    renderProceduralImpostor(ctx, color, state.activePose);
-  }
-
-  ctx.restore();
-}
-
-function renderProceduralImpostor(c, bodyColor, pose, squish = 0) {
-  let offsetX = 0, offsetY = 0, rot = 0;
-  if (pose === 'singLEFT')  { offsetX = -25; rot = -0.08; }
-  if (pose === 'singDOWN')  { offsetY = 20; }
-  if (pose === 'singUP')    { offsetY = -20; }
-  if (pose === 'singRIGHT') { offsetX = 25; rot = 0.08; }
-  if (pose === 'hey')       { offsetY = -25; rot = 0.05; }
-
-  c.save();
-  c.translate(offsetX, offsetY);
-  c.rotate(rot);
-
-  c.fillStyle = bodyColor;
-  c.strokeStyle = '#000000';
-  c.lineWidth = 8;
-  c.beginPath();
-  c.roundRect(55, -150 - squish * 10, 35, 120 + squish * 10, 16);
-  c.fill();
-  c.stroke();
-
-  c.beginPath();
-  c.roundRect(-70, -200 - squish * 10, 140, 200 + squish * 10, [70, 70, 25, 25]);
-  c.fill();
-  c.stroke();
-
-  c.fillStyle = '#7feaff';
-  c.beginPath();
-  c.roundRect(-60, -165 - squish * 10, 80, 48, 24);
-  c.fill();
-  c.stroke();
-
-  c.fillStyle = '#ffffff';
-  c.beginPath();
-  c.roundRect(-45, -158 - squish * 10, 50, 14, 7);
-  c.fill();
-
-  c.restore();
-}
-
-// 9. CONDUCTOR BEAT TICKER
-let beatTimer = 0;
-function stageAnimationLoop(time) {
-  if (time - beatTimer > 500) {
-    beatTimer = time;
-    if (!state.isSinging) {
-      state.idleFrameTick++;
-      if (state.mode === 'animated_template') {
-        drawCharacter();
-      }
-    }
-  }
-  requestAnimationFrame(stageAnimationLoop);
-}
-requestAnimationFrame(stageAnimationLoop);
-
-// 10. AUTO-CALIBRATE TO IMPOSTOR HEIGHT
-function autoCalibrateScale() {
-  const char = getCurrentChar();
-  let currentHeight = 240;
-  if (char.spriteImage) {
-    currentHeight = Math.floor(char.spriteImage.height / char.rows);
-  }
-  const calculatedScale = (380 / currentHeight).toFixed(2);
-  char.charScale = calculatedScale;
-  document.getElementById('charScale').value = calculatedScale;
-  drawCharacter();
-}
-
-// 11. FILE UPLOAD HANDLERS
-function handleSpriteUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const char = getCurrentChar();
-  char.rawSpriteFile = file;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      char.spriteImage = img;
-      updateSlicerMap();
-      autoCalibrateScale();
-      drawCharacter();
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function updateGridSlices() {
-  const char = getCurrentChar();
-  char.cols = parseInt(document.getElementById('gridCols').value) || 5;
-  char.rows = parseInt(document.getElementById('gridRows').value) || 1;
-  updateSlicerMap();
-  drawCharacter();
-}
-
-async function handleLooseFrame(pose, e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      state.looseFrames[pose] = img;
-      stitchLooseFramesIntoSprite();
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function stitchLooseFramesIntoSprite() {
-  const poses = ['idle', 'left', 'down', 'up', 'right'];
-  const loaded = poses.map(p => state.looseFrames[p]).filter(Boolean);
-  if (loaded.length === 0) return;
-
-  const maxW = Math.max(...loaded.map(img => img.width));
-  const maxH = Math.max(...loaded.map(img => img.height));
-
-  const sheetCanvas = document.createElement('canvas');
-  sheetCanvas.width = maxW * 5;
-  sheetCanvas.height = maxH;
-  const sCtx = sheetCanvas.getContext('2d');
-
-  poses.forEach((p, i) => {
-    const img = state.looseFrames[p] || state.looseFrames['idle'];
-    if (img) {
-      sCtx.drawImage(img, i * maxW + (maxW - img.width) / 2, maxH - img.height);
-    }
-  });
-
-  const finalImg = new Image();
-  finalImg.onload = () => {
-    const char = getCurrentChar();
-    char.spriteImage = finalImg;
-    char.cols = 5;
-    char.rows = 1;
-    document.getElementById('gridCols').value = 5;
-    document.getElementById('gridRows').value = 1;
-    updateSlicerMap();
-    autoCalibrateScale();
-    drawCharacter();
-  };
-  finalImg.src = sheetCanvas.toDataURL('image/png');
-}
-
-// 12. 1-CLICK 3-STATE ICONS
-async function autoGenerateIconsFromIdle() {
-  const char = getCurrentChar();
-  const baseCanvas = document.createElement('canvas');
-  baseCanvas.width = 150;
-  baseCanvas.height = 150;
-  const bCtx = baseCanvas.getContext('2d');
-
-  if (char.spriteImage) {
-    const fw = Math.floor(char.spriteImage.width / char.cols);
-    const fh = Math.floor(char.spriteImage.height / char.rows);
-    bCtx.drawImage(char.spriteImage, 0, 0, fw, fh, 10, 10, 130, 130);
-  } else {
-    bCtx.save();
-    bCtx.translate(75, 120);
-    bCtx.scale(0.55, 0.55);
-    renderProceduralImpostor(bCtx, char.healthColor, 'idle');
-    bCtx.restore();
-  }
-
-  const imgNormal = new Image();
-  imgNormal.src = baseCanvas.toDataURL('image/png');
-  char.icons.normal = imgNormal;
-  document.getElementById('iconNormalStatus').innerText = 'Auto-Generated';
-
-  const loseCanvas = document.createElement('canvas');
-  loseCanvas.width = 150;
-  loseCanvas.height = 150;
-  const lCtx = loseCanvas.getContext('2d');
-  lCtx.drawImage(baseCanvas, 0, 0);
-  lCtx.fillStyle = 'rgba(255, 51, 68, 0.35)';
-  lCtx.fillRect(0, 0, 150, 150);
-  lCtx.strokeStyle = '#000000';
-  lCtx.lineWidth = 5;
-  lCtx.beginPath();
-  lCtx.moveTo(40, 20); lCtx.lineTo(75, 80); lCtx.lineTo(60, 130);
-  lCtx.moveTo(110, 30); lCtx.lineTo(80, 80); lCtx.lineTo(105, 120);
-  lCtx.stroke();
-
-  const imgLose = new Image();
-  imgLose.src = loseCanvas.toDataURL('image/png');
-  char.icons.lose = imgLose;
-  document.getElementById('iconLoseStatus').innerText = 'Auto-Generated';
-
-  const winCanvas = document.createElement('canvas');
-  winCanvas.width = 150;
-  winCanvas.height = 150;
-  const wCtx = winCanvas.getContext('2d');
-  wCtx.drawImage(baseCanvas, 0, 0);
-  wCtx.fillStyle = 'rgba(251, 191, 36, 0.25)';
-  wCtx.fillRect(0, 0, 150, 150);
-  wCtx.fillStyle = '#ffffff';
-  wCtx.font = 'bold 24px sans-serif';
-  wCtx.fillText('★', 18, 40);
-  wCtx.fillText('★', 115, 55);
-
-  const imgWin = new Image();
-  imgWin.src = winCanvas.toDataURL('image/png');
-  char.icons.win = imgWin;
-  document.getElementById('iconWinStatus').innerText = 'Auto-Generated';
-
-  alert(`Generated 3-State Icons for "${char.skinDisplayName}"!`);
-}
-
-function handleIconUpload(slot, e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const char = getCurrentChar();
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      char.icons[slot] = img;
-      document.getElementById(`icon${slot.charAt(0).toUpperCase() + slot.slice(1)}Status`).innerText = `Loaded (${img.width}x${img.height})`;
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function handleBannerUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      state.customBannerImage = img;
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function handleNodeRenderUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const char = getCurrentChar();
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      char.customNodeRenderImage = img;
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-// 13. KEYBOARD LISTENER
-window.addEventListener('keydown', (e) => {
-  const key = e.key.toLowerCase();
-  let newPose = null;
-
-  if (key === 'arrowleft' || key === 'a') newPose = 'singLEFT';
-  if (key === 'arrowdown' || key === 's') newPose = 'singDOWN';
-  if (key === 'arrowup' || key === 'w') newPose = 'singUP';
-  if (key === 'arrowright' || key === 'd') newPose = 'singRIGHT';
-  if (key === ' ' || key === 'shift') newPose = 'hey';
-
-  if (newPose) {
-    state.activePose = newPose;
-    state.isSinging = true;
-    document.getElementById('activePoseName').innerText = newPose;
-    drawCharacter();
-
-    clearTimeout(state.singTimeout);
-    state.singTimeout = setTimeout(() => {
-      state.isSinging = false;
-      state.activePose = 'idle';
-      document.getElementById('activePoseName').innerText = 'idle';
-      drawCharacter();
-    }, 450);
-  }
-});
-
-// 14. DRAGGABLE ANCHORS
-function setupDraggableAnchor(elementId, coordDisplayId, anchorProp) {
-  const el = document.getElementById(elementId);
-  const container = document.getElementById('stageCanvasContainer');
-  let dragging = false;
-
-  el.addEventListener('mousedown', () => dragging = true);
-  window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const char = getCurrentChar();
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    el.style.left = `${x - 25}px`;
-    el.style.top = `${y - 12}px`;
-
-    const relX = Math.round(x - rect.width / 2);
-    const relY = Math.round(y - rect.height * 0.78);
-    char[anchorProp].x = relX;
-    char[anchorProp].y = relY;
-
-    document.getElementById(coordDisplayId).innerText = `${relX}, ${relY}`;
-  });
-  window.addEventListener('mouseup', () => dragging = false);
-}
-
-setupDraggableAnchor('hatMarker', 'hatCoords', 'hatAnchor');
-setupDraggableAnchor('camMarker', 'camCoords', 'camAnchor');
-
-document.getElementById('hatMarker').style.left = '46%';
-document.getElementById('hatMarker').style.top = '22%';
-document.getElementById('camMarker').style.left = '58%';
-document.getElementById('camMarker').style.top = '45%';
-
-// 15. COSMICUBE SHOP & SYNC
 function syncSkinDisplayName() {
   const char = getCurrentChar();
   const node = state.cosmicubeNodes.find(n => n.id === state.selectedNodeId);
@@ -1005,7 +940,7 @@ function toggleCurrency(mode) {
   document.getElementById('currencyBadge').innerText = mode === 'beans' ? '5,000 Beans' : '1,500 Mod Pods';
 }
 
-// 16. GRAPHICS GENERATORS
+// 14. GRAPHICS GENERATORS
 async function generateStitchedIconBlobForChar(char) {
   const offCanvas = document.createElement('canvas');
   offCanvas.width = 450;
@@ -1087,8 +1022,8 @@ async function generateNodeRenderItemBlobForChar(char) {
   if (char.customNodeRenderImage) {
     rCtx.drawImage(char.customNodeRenderImage, 0, 0, 180, 180);
   } else if (char.spriteImage) {
-    const fw = Math.floor(char.spriteImage.width / char.cols);
-    const fh = Math.floor(char.spriteImage.height / char.rows);
+    const fw = char.frameWidth || 300;
+    const fh = char.frameHeight || 240;
     rCtx.drawImage(char.spriteImage, 0, 0, fw, fh, 10, 10, 160, 160);
   } else {
     rCtx.save();
@@ -1122,7 +1057,7 @@ async function generateCurrencyIconBlob() {
   return new Promise(resolve => cCanvas.toBlob(resolve, 'image/png'));
 }
 
-// 17. .IMP PROJECT SERIALIZATION (Full Roster + Node Graph)
+// 15. .IMP PROJECT SERIALIZATION (v2.1 Preserves Row-by-Row Setup)
 function imageToBase64(img) {
   if (!img) return null;
   const c = document.createElement('canvas');
@@ -1153,10 +1088,11 @@ async function saveImpProject() {
     stageOffsetX: c.stageOffsetX,
     stageOffsetY: c.stageOffsetY,
     healthColor: c.healthColor,
-    cols: c.cols,
-    rows: c.rows,
+    frameWidth: c.frameWidth,
+    frameHeight: c.frameHeight,
     hatAnchor: c.hatAnchor,
     camAnchor: c.camAnchor,
+    animationRows: c.animationRows,
     spriteImageBase64: imageToBase64(c.spriteImage),
     customNodeRenderBase64: imageToBase64(c.customNodeRenderImage),
     iconNormal: imageToBase64(c.icons.normal),
@@ -1166,14 +1102,12 @@ async function saveImpProject() {
 
   const projectData = {
     format: "VS_IMPOSTOR_STUDIO_PROJECT",
-    version: "2.0",
+    version: "2.1",
     savedAt: new Date().toISOString(),
     config: {
-      mode: state.mode,
       animFps: document.getElementById('animFps').value,
       danceEverySelect: document.getElementById('danceEverySelect').value,
       singDurationInput: document.getElementById('singDurationInput').value,
-      idleIndicesInput: document.getElementById('idleIndicesInput').value,
       antialiasSelect: document.getElementById('antialiasSelect').value,
       currencyMode: document.getElementById('currencyMode').value,
       cubeTitle: document.getElementById('cubeTitle').value,
@@ -1208,7 +1142,6 @@ async function loadImpProject(e) {
       if (cfg.animFps) document.getElementById('animFps').value = cfg.animFps;
       if (cfg.danceEverySelect) document.getElementById('danceEverySelect').value = cfg.danceEverySelect;
       if (cfg.singDurationInput) document.getElementById('singDurationInput').value = cfg.singDurationInput;
-      if (cfg.idleIndicesInput) document.getElementById('idleIndicesInput').value = cfg.idleIndicesInput;
       if (cfg.antialiasSelect) document.getElementById('antialiasSelect').value = cfg.antialiasSelect;
       if (cfg.currencyMode) document.getElementById('currencyMode').value = cfg.currencyMode;
       if (cfg.cubeTitle) document.getElementById('cubeTitle').value = cfg.cubeTitle;
@@ -1217,7 +1150,7 @@ async function loadImpProject(e) {
         state.customBannerImage = await base64ToImage(cfg.customBannerBase64);
       }
 
-      // Rehydrate Characters Roster
+      // Rehydrate Characters Roster with Row-by-Row data
       if (data.characters && data.characters.length > 0) {
         state.characters = await Promise.all(data.characters.map(async c => ({
           skinId: c.skinId || 'custom_bf',
@@ -1226,10 +1159,18 @@ async function loadImpProject(e) {
           stageOffsetX: c.stageOffsetX || 0,
           stageOffsetY: c.stageOffsetY || 400,
           healthColor: c.healthColor || '#ffdd00',
-          cols: c.cols || 5,
-          rows: c.rows || 1,
+          frameWidth: c.frameWidth || 300,
+          frameHeight: c.frameHeight || 240,
           hatAnchor: c.hatAnchor || { x: 0, y: -90 },
           camAnchor: c.camAnchor || { x: 100, y: -100 },
+          animationRows: c.animationRows || [
+            { name: "idle", label: "Idle frames", prefix: "idle", count: 4 },
+            { name: "singUP", label: "Up frames", prefix: "singUP", count: 1 },
+            { name: "singDOWN", label: "down frames", prefix: "singDOWN", count: 1 },
+            { name: "singLEFT", label: "Left frames", prefix: "singLEFT", count: 1 },
+            { name: "singRIGHT", label: "Right frames", prefix: "singRIGHT", count: 1 },
+            { name: "hey", label: "Peace / Taunt", prefix: "peace", count: 1 }
+          ],
           rawSpriteFile: null,
           spriteImage: await base64ToImage(c.spriteImageBase64),
           customNodeRenderImage: await base64ToImage(c.customNodeRenderBase64),
@@ -1241,7 +1182,6 @@ async function loadImpProject(e) {
         })));
       }
 
-      // Rehydrate Cosmicube Nodes
       if (data.cosmicubeNodes && data.cosmicubeNodes.length > 0) {
         state.cosmicubeNodes = data.cosmicubeNodes;
       }
@@ -1249,6 +1189,7 @@ async function loadImpProject(e) {
       selectCharacter(0);
       syncCubeTitle();
       renderRosterTabs();
+      renderAnimRowsUI();
       renderDraggableNodeBoard();
       alert(`Project (.imp) with ${state.characters.length} character(s) loaded successfully!`);
     } catch (err) {
@@ -1267,7 +1208,7 @@ window.addEventListener('drop', (e) => {
   }
 });
 
-// 18. MULTI-CHARACTER & MULTI-NODE BUNDLER (.ZIP)
+// 16. FULL MULTI-CHARACTER & ROW-BY-ROW BUNDLER (.ZIP)
 async function bundleModZip() {
   const zip = new JSZip();
   const primaryChar = state.characters[0] || {};
@@ -1281,8 +1222,6 @@ async function bundleModZip() {
   const fps = parseInt(document.getElementById('animFps').value) || 24;
   const danceEvery = parseInt(document.getElementById('danceEverySelect').value) || 2;
   const singDuration = parseInt(document.getElementById('singDurationInput').value) || 6;
-  const idleIndicesRaw = document.getElementById('idleIndicesInput').value;
-  const parsedIdleIndices = idleIndicesRaw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
 
   // A. Engine Metadata
   const metaData = {
@@ -1310,14 +1249,12 @@ async function bundleModZip() {
   const currencyBlob = isCustomCurrency ? await generateCurrencyIconBlob() : null;
   const primaryIconBlob = await generateStitchedIconBlobForChar(primaryChar);
 
-  // Common Multi-Directory Injector
   const injectTarget = (target) => {
     target.file("meta.json", metaString);
     target.file("_polymod_meta.json", metaString);
     target.file("icon.png", primaryIconBlob);
 
     target.folder("data").folder("cosmicube").file(`${cubeId}.json`, cubeHeaderString);
-
     target.folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
     target.folder("shared").folder("images").folder("menu").folder("cosmicube").folder("slides").file(`${cubeId}.png`, bannerBlob);
 
@@ -1330,10 +1267,31 @@ async function bundleModZip() {
   injectTarget(zip);
   injectTarget(zip.folder(primaryChar.skinId));
 
-  // C. COMPILE ALL CHARACTERS IN ROSTER
+  // C. COMPILE EACH CHARACTER FROM ITS ANIMATION ROWS
   for (const char of state.characters) {
     const sId = char.skinId.toLowerCase().replace(/[^a-z0-9_]/g, '_');
     const scale = parseFloat(char.charScale) || 1.75;
+    const fw = char.frameWidth || 300;
+    const fh = char.frameHeight || 240;
+
+    // Dynamically compile JSON animation entries from character's rows!
+    const animEntries = char.animationRows.map(row => ({
+      name: row.name,
+      anim: row.name,
+      prefix: row.prefix,
+      offsets: [0, 0],
+      frameRate: fps,
+      fps: fps,
+      looped: false,
+      loop: false,
+      indices: [],
+      frameIndices: []
+    }));
+
+    // Auto-map misses and taunts if missing
+    if (!char.animationRows.some(r => r.name === 'hey')) {
+      animEntries.push({ name: "hey", anim: "hey", prefix: "idle", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] });
+    }
 
     const charConfigData = {
       renderType: "sparrow",
@@ -1359,66 +1317,47 @@ async function bundleModZip() {
       healthicon: sId,
       scale: scale,
       healthbar_colors: [255, 221, 0],
-
-      animations: [
-        { 
-          name: "idle", anim: "idle", prefix: "idle", offsets: [0, 0], 
-          frameRate: fps, fps: fps, looped: false, loop: false, 
-          indices: (state.mode === 'animated_template') ? parsedIdleIndices : [], 
-          frameIndices: (state.mode === 'animated_template') ? parsedIdleIndices : [] 
-        },
-        { name: "singLEFT", anim: "singLEFT", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singDOWN", anim: "singDOWN", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singUP", anim: "singUP", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singRIGHT", anim: "singRIGHT", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singLEFTmiss", anim: "singLEFTmiss", prefix: "singLEFT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singDOWNmiss", anim: "singDOWNmiss", prefix: "singDOWN", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singUPmiss", anim: "singUPmiss", prefix: "singUP", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "singRIGHTmiss", anim: "singRIGHTmiss", prefix: "singRIGHT", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "hey", anim: "hey", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "peace", anim: "peace", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] },
-        { name: "taunt", anim: "taunt", prefix: "peace", offsets: [0, 0], frameRate: fps, fps: fps, looped: false, loop: false, indices: [], frameIndices: [] }
-      ]
+      animations: animEntries
     };
     const charConfigString = JSON.stringify(charConfigData, null, 2);
 
+    // Spritesheet PNG & Row-by-Row Sparrow XML
     let spriteBlob;
-    let frameW = 300, frameH = 240;
-    let cols = char.cols, rows = char.rows;
+    const maxCols = Math.max(...char.animationRows.map(r => r.count), 1);
+    const totalW = maxCols * fw;
+    const totalH = char.animationRows.length * fh;
 
     if (char.spriteImage) {
-      frameW = Math.floor(char.spriteImage.width / char.cols);
-      frameH = Math.floor(char.spriteImage.height / char.rows);
       const c = document.createElement('canvas');
-      c.width = char.spriteImage.width; c.height = char.spriteImage.height;
+      c.width = char.spriteImage.width;
+      c.height = char.spriteImage.height;
       c.getContext('2d').drawImage(char.spriteImage, 0, 0);
       spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
     } else {
       const c = document.createElement('canvas');
-      c.width = 1500; c.height = 260;
+      c.width = totalW;
+      c.height = totalH;
       const sCtx = c.getContext('2d');
-      const poses = ['idle', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
-      poses.forEach((pose, i) => {
-        sCtx.save();
-        sCtx.translate(i * 300 + 150, 260 * 0.88);
-        renderProceduralImpostor(sCtx, char.healthColor || '#ff3344', pose);
-        sCtx.restore();
+      char.animationRows.forEach((row, rIdx) => {
+        for (let f = 0; f < row.count; f++) {
+          sCtx.save();
+          sCtx.translate(f * fw + fw / 2, rIdx * fh + fh * 0.88);
+          renderProceduralImpostor(sCtx, char.healthColor || '#ff3344', row.name);
+          sCtx.restore();
+        }
       });
       spriteBlob = await new Promise(res => c.toBlob(res, 'image/png'));
-      cols = 5; rows = 1; frameW = 300; frameH = 260;
     }
 
-    let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${sId}.png" width="${cols * frameW}" height="${rows * frameH}">\n`;
-    const xmlPoseKeys = ["idle", "singLEFT", "singDOWN", "singUP", "singRIGHT", "peace"];
-    for (let i = 0; i < cols * rows; i++) {
-      const aName = xmlPoseKeys[i] || "idle";
-      const x = (i % cols) * frameW;
-      const y = Math.floor(i / cols) * frameH;
-      xmlString += `  <SubTexture name="${aName}0000" x="${x}" y="${y}" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
-    }
-    if (cols * rows <= 5) {
-      xmlString += `  <SubTexture name="peace0000" x="0" y="0" width="${frameW}" height="${frameH}" frameX="0" frameY="0" frameWidth="${frameW}" frameHeight="${frameH}"/>\n`;
-    }
+    // Dynamic Row-by-Row XML generation!
+    let xmlString = `<?xml version="1.0" encoding="utf-8"?>\n<TextureAtlas imagePath="${sId}.png" width="${totalW}" height="${totalH}">\n`;
+    char.animationRows.forEach((row, rIdx) => {
+      const y = rIdx * fh;
+      for (let f = 0; f < row.count; f++) {
+        const x = f * fw;
+        xmlString += `  <SubTexture name="${row.prefix}${String(f).padStart(4, '0')}" x="${x}" y="${y}" width="${fw}" height="${fh}" frameX="0" frameY="0" frameWidth="${fw}" frameHeight="${fh}"/>\n`;
+      }
+    });
     xmlString += `</TextureAtlas>`;
 
     const charIconBlob = await generateStitchedIconBlobForChar(char);
@@ -1444,7 +1383,7 @@ async function bundleModZip() {
     injectChar(zip.folder(primaryChar.skinId));
   }
 
-  // D. COMPILE ALL COSMICUBE BRANCH NODES
+  // D. COMPILE DRAGGABLE COSMICUBE NODES
   for (const node of state.cosmicubeNodes) {
     if (node.id === 'root') continue;
 
@@ -1475,4 +1414,5 @@ async function bundleModZip() {
 // Initial draw calls
 renderRosterTabs();
 selectCharacter(0);
+renderAnimRowsUI();
 renderDraggableNodeBoard();
